@@ -1,0 +1,15 @@
+# data/service.yaml - Fix the selector
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "database.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "database.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "database.selectorLabels" . | nindent 4 }}
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: meo_admin
+      POSTGRES_PASSWORD: MeoStationery2025!
+      POSTGRES_DB: meo_stationery
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - meo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meo_admin -d meo_stationery"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  meo-stationery:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://meo_admin:MeoStationery2025!@postgres:5432/meo_stationery?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-production-secret-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - meo-network
+
+  
+
+volumes:
+  postgres_data:
+
+networks:
+  meo-network:
+    driver: bridge

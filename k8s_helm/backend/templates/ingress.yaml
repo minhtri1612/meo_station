@@ -1,0 +1,23 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "backend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Annotation này cần thiết cho một số phiên bản NGINX Ingress Controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            # This now correctly points to the dynamically named Service
+            name: {{ include "backend.fullname" . }}
+            port:
+              # Port của service, không phải targetPort
+              number: {{ .Values.service.port }}
+{{- end }}

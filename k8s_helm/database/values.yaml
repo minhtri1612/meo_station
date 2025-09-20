@@ -1,0 +1,41 @@
+# Default values for database.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+nameOverride: "postgres"
+fullnameOverride: "postgres"
+
+image:
+  repository: postgres
+  pullPolicy: Always
+  tag: "13"
+
+service:
+  type: ClusterIP
+  port: 5432
+
+# -- Service Account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+httpRoute:
+  enabled: false
+auth:
+  username: "meo_admin"
+  password: "MeoStationery2025!" # <-- Change for production and manage securely
+  database: "meo_stationery"
+
+persistence:
+  size: 1Gi
+
+# -- Liveness and Readiness probes for the database container
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1

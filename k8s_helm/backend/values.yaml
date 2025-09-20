@@ -1,0 +1,47 @@
+backend:
+  name: backend-deployment
+  namespace: meo-stationery
+
+workload:
+  image: minhtri1612/meo-stationery-backend:vcl
+
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "128m"
+    limits:
+      memory: "2Gi"  # More memory
+      cpu: "1000m"   # More CPU
+    ports:
+      - containerPort: 3000
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+serviceAccount:
+  create: false
+
+replicaCount: 2
+
+# Add missing config and secret sections for Helm templates
+config:
+  nextAuthUrl: "http://localhost:3000" # Update with your actual domain
+
+# Values for the database, to be used in the secret template
+database:
+  fullnameOverride: "postgres"
+  auth:
+    username: "meo_admin"
+    password: "MeoStationery2025!"
+    database: "meo_stationery"
+
+secret:
+  nextAuthSecret: "your-very-long-random-secret-key-here"
+
+httpRoute:
+  enabled: false
+
+ingress:
+  enabled: true
