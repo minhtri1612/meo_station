@@ -62,6 +62,10 @@ const ProductPage = (props: { params: Promise<{ id: string }> }) => {
   }, [params.id])
 
   useEffect(() => {
+    // NOTE: This is a clever way to discover images on the client-side.
+    // For better performance, consider having the API endpoint (`/api/products?id=...`)
+    // return an array of image paths directly, so the client doesn't need to
+    // send multiple HEAD requests to find them.
     const loadProductImages = async () => {
       const images: string[] = []
       for(let i = 0; i < 10; i++) {
