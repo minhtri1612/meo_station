@@ -10,6 +10,7 @@ pipeline {
         
         // Docker Hub Credentials
         DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials' // Jenkins credentialsId
+        DB_PASSWORD_CREDENTIALS = 'db-password' // Jenkins credentialsId for DB password
         
         // Kubernetes Configuration
         KUBECONFIG_CREDENTIALS = 'kubeconfig-credentials' // Jenkins credentialsId for kubeconfig
@@ -146,26 +147,19 @@ pipeline {
             steps {
                 echo '💾 Deploying PostgreSQL database with Helm...'
                 script {
-                    sh """
-                        # Check if database release exists
-                        if helm list -n ${KUBERNETES_NAMESPACE} | grep -q ${HELM_RELEASE_DB}; then
-                            echo "Database release exists, upgrading..."
-                            helm upgrade ${HELM_RELEASE_DB} ${HELM_CHART_PATH_DB} \\
-                                --namespace ${KUBERNETES_NAMESPACE} \\
-                                --set auth.password="MeoStationery2025!" \\
+                    // Use withCredentials to securely load the database password
+                    withCredentials([string(credentialsId: "${DB_PASSWORD_CREDENTIALS}", variable: 'DB_PASSWORD')]) {
+                        sh """
+                            echo "Deploying/Upgrading database release '${HELM_RELEASE_DB}'..."
+                            helm upgrade --install ${HELM_RELEASE_DB} ${HELM_CHART_PATH_DB} \
+                                --namespace ${KUBERNETES_NAMESPACE} \
+                                --set-string auth.password="\$DB_PASSWORD" \
                                 --wait --timeout=300s
-                        else
-                            echo "Installing new database release..."
-                            helm install ${HELM_RELEASE_DB} ${HELM_CHART_PATH_DB} \\
-                                --namespace ${KUBERNETES_NAMESPACE} \\
-                                --set auth.password="MeoStationery2025!" \\
-                                --wait --timeout=300s
-                        fi
-                        
-                        # Verify database deployment
-                        kubectl get pods -n ${KUBERNETES_NAMESPACE} -l app.kubernetes.io/name=postgres
-                        kubectl get svc -n ${KUBERNETES_NAMESPACE} -l app.kubernetes.io/name=postgres
-                    """
+                            
+                            echo "Verifying database deployment..."
+                            kubectl get pods,svc -n ${KUBERNETES_NAMESPACE} -l app.kubernetes.io/name=postgres
+                        """
+                    }
                 }
             }
         }
@@ -174,28 +168,16 @@ pipeline {
             steps {
                 echo '🚀 Deploying backend application with Helm...'
                 script {
+                    // The 'helm upgrade --install' command simplifies the logic by handling both install and upgrade cases.
                     sh """
-                        # Update Helm values with new image tag
-                        sed -i 's|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_TAG}|g' ${HELM_CHART_PATH_BACKEND}/values.yaml
+                        echo "Deploying/Upgrading backend release '${HELM_RELEASE_BACKEND}'..."
+                        helm upgrade --install ${HELM_RELEASE_BACKEND} ${HELM_CHART_PATH_BACKEND} \
+                            --namespace ${KUBERNETES_NAMESPACE} \
+                            --set workload.image=${DOCKER_IMAGE}:${IMAGE_TAG} \
+                            --wait --timeout=300s
                         
-                        # Check if backend release exists
-                        if helm list -n ${KUBERNETES_NAMESPACE} | grep -q ${HELM_RELEASE_BACKEND}; then
-                            echo "Backend release exists, upgrading..."
-                            helm upgrade ${HELM_RELEASE_BACKEND} ${HELM_CHART_PATH_BACKEND} \\
-                                --namespace ${KUBERNETES_NAMESPACE} \\
-                                --set workload.image=${DOCKER_IMAGE}:${IMAGE_TAG} \\
-                                --wait --timeout=300s
-                        else
-                            echo "Installing new backend release..."
-                            helm install ${HELM_RELEASE_BACKEND} ${HELM_CHART_PATH_BACKEND} \\
-                                --namespace ${KUBERNETES_NAMESPACE} \\
-                                --set workload.image=${DOCKER_IMAGE}:${IMAGE_TAG} \\
-                                --wait --timeout=300s
-                        fi
-                        
-                        # Verify backend deployment
+                        echo "Verifying backend deployment..."
                         kubectl get pods -n ${KUBERNETES_NAMESPACE} -l app.kubernetes.io/name=backend
-                        kubectl get svc -n ${KUBERNETES_NAMESPACE} -l app.kubernetes.io/name=backend
                     """
                 }
             }
