@@ -27,9 +27,7 @@ pipeline {
         HELM_RELEASE_BACKEND = 'backend'
     }
     
-    tools {
-        nodejs '18'
-    }
+    
     
     stages {
         stage('🔍 Checkout Code') {
