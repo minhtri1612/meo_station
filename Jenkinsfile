@@ -40,7 +40,8 @@ pipeline {
                 sh 'ls -la'
             }
         }
-        
+    }
+}
 //         stage('🔧 Install Dependencies') {
 //             steps {
 //                 echo '📥 Installing Node.js dependencies...'
