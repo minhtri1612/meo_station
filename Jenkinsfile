@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    triggers {
+        github('minhtri1612/meo_station')
+    }
     tools {
         nodejs 'NodeJS-18'
     }
