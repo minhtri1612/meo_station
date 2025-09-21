@@ -1,10 +1,9 @@
 pipeline {
-    agent any
-    triggers {
-        github('minhtri1612/meo_station')
-    }
-    tools {
-        nodejs 'NodeJS-18'
+    agent {
+        docker {
+            image 'node:18-alpine'
+            args '-u root'
+        }
     }
     
     environment {
