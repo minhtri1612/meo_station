@@ -1,47 +1,90 @@
+# Meo Stationery E-Commerce Platform 📝✏️
 
-# Meo Stationery 📝✏️
-
-A modern e-commerce platform for stationery products built with Next.js, Prisma, and PostgreSQL, designed for AWS cloud deployment.
-
-![Architecture Diagram](./three-tier.drawio.png)
-
-## 🏗️ Architecture Overview
-
-This application follows a cloud-native architecture with:
-
-- **Frontend**: Next.js 15 with Tailwind CSS and Radix UI
-- **Backend**: Next.js API routes with Prisma ORM
-- **Database**: PostgreSQL (Local development + AWS RDS for production)
-- **Container**: Docker with multi-stage builds
-- **Orchestration**: Kubernetes (EKS) with auto-scaling
-- **Infrastructure**: AWS with Terraform (VPC, ALB, RDS, ECR)
+A modern, full-stack e-commerce platform for stationery products, built with Next.js, Prisma, and PostgreSQL. This project is designed to be deployed and orchestrated in a Kubernetes environment using Helm.
 
 ## ✨ Features
 
-- 🛍️ Product catalog with categories (A-P) and search functionality
-- 🛒 Shopping cart with real-time updates
-- 📦 Order management system with status tracking
-- 👤 User authentication and profile management
-- 💳 Payment integration with VNPay gateway
-- 📱 Fully responsive design with Tailwind CSS
-- 🎨 Modern UI components with Radix UI
-- 🐳 Docker containerization ready
-- ☸️ Kubernetes deployment configuration
-- 🌩️ AWS cloud infrastructure with Terraform
+- 🛍️ **Product Catalog**: Browse products with categories and search functionality.
+- 🛒 **Shopping Cart**: Real-time updates to the shopping cart.
+- 📦 **Order Management**: System for tracking order status.
+- 👤 **User Authentication**: User login and profile management.
+- 💳 **Payment Integration**: VNPay gateway for payments.
+- 📱 **Responsive Design**: Fully responsive UI with Tailwind CSS.
+- 🎨 **Modern UI**: Modern UI components from Radix UI.
+- 🐳 **Containerized**: Ready for deployment with Docker.
+- ☸️ **Kubernetes Ready**: Configured for Kubernetes deployment.
 
-## 🚀 Quick Setup
+## 🛠️ Tech Stack
 
-### Option 1: Docker Setup (Recommended)
+- **Framework**: Next.js (Frontend and Backend)
+- **ORM**: Prisma
+- **Database**: PostgreSQL
+- **Containerization**: Docker
+- **Orchestration**: Kubernetes
+- **Deployment**: Helm
 
-```bash
-# Start with Docker Compose (includes PostgreSQL)
-docker compose up -d
+## 🚀 Getting Started (Local Development)
 
-# View logs
-docker compose logs -f
+To get a local copy up and running, you can use Docker Compose.
 
-# Access the application
-open http://localhost:3000
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/minhtri1612/meo_station.git
+    cd meo_station
+    ```
 
-# Stop containers
-docker compose down
+2.  **Start the services:**
+    This will start the application and a PostgreSQL database.
+    ```bash
+    docker compose up -d
+    ```
+
+3.  **Access the application:**
+    Open your browser and navigate to `http://localhost:3000`.
+
+4.  **View logs:**
+    ```bash
+    docker compose logs -f
+    ```
+
+5.  **Stop the services:**
+    ```bash
+    docker compose down
+    ```
+
+## 🚀 Deployment (Kubernetes)
+
+This application is designed to be deployed to a Kubernetes cluster using Helm.
+
+1.  **Prerequisites:**
+    - A running Kubernetes cluster.
+    - `kubectl` configured to connect to your cluster.
+    - Helm v3 installed.
+
+2.  **Navigate to the Helm chart directory:**
+    ```bash
+    cd k8s_helm/backend
+    ```
+
+3.  **Deploy the application:**
+    This command will deploy the application and a PostgreSQL database to your Kubernetes cluster.
+    ```bash
+    helm install backend . --namespace meo-stationery --create-namespace
+    ```
+
+4.  **Check the status of the deployment:**
+    ```bash
+    kubectl get all -n meo-stationery
+    ```
+
+5.  **Access the application:**
+    If you are using a local Kubernetes cluster (like Minikube or Docker Desktop), you can use `port-forward` to access the application:
+    ```bash
+    kubectl port-forward svc/backend-meo-stationery-backend 8080:80 -n meo-stationery
+    ```
+    Then, open your browser and navigate to `http://localhost:8080`.
+
+6.  **Uninstall the deployment:**
+    ```bash
+    helm uninstall backend -n meo-stationery
+    ```
