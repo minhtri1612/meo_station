@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: {{ .Release.Namespace }}
-  name: {{ .Values.backend.name }}-configmap
-data:
-  # Các key ở đây cũng sẽ trở thành tên của biến môi trường
-  NODE_ENV: "production"
-  NEXTAUTH_URL: {{ .Values.config.nextAuthUrl | quote }}
