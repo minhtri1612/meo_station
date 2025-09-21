@@ -4,17 +4,16 @@ backend:
 
 workload:
   image: minhtri1612/meo-stationery-backend:vcl
-
-  
   resources:
     requests:
       memory: "256Mi"
       cpu: "128m"
     limits:
-      memory: "2Gi"  # More memory
-      cpu: "1000m"   # More CPU
-    ports:
-      - containerPort: 3000
+      memory: "2Gi"
+      cpu: "1000m"
+  ports:
+    - containerPort: 3000
+
 service:
   type: ClusterIP
   port: 80
@@ -25,9 +24,9 @@ serviceAccount:
 
 replicaCount: 2
 
-# Add missing config and secret sections for Helm templates
+# Configuration for the application
 config:
-  nextAuthUrl: "http://localhost:3000" # Update with your actual domain
+  nextAuthUrl: "http://meo-stationery.local"
 
 # Values for the database, to be used in the secret template
 database:
@@ -38,10 +37,17 @@ database:
     database: "meo_stationery"
 
 secret:
-  nextAuthSecret: "your-very-long-random-secret-key-here"
+  nextAuthSecret: "your-very-long-random-secret-key-here-change-this-in-production"
 
 httpRoute:
   enabled: false
 
 ingress:
   enabled: true
+  host: meo-stationery.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    enabled: false
+    secretName: meo-stationery-tls

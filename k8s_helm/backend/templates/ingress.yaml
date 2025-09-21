@@ -5,19 +5,27 @@ metadata:
   name: {{ include "backend.fullname" . }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    # Annotation này cần thiết cho một số phiên bản NGINX Ingress Controller
     nginx.ingress.kubernetes.io/rewrite-target: /
+    {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
 spec:
+  ingressClassName: nginx
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host | quote }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
   rules:
-  - http:
+  - host: {{ .Values.ingress.host | quote }}
+    http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            # This now correctly points to the dynamically named Service
             name: {{ include "backend.fullname" . }}
             port:
-              # Port của service, không phải targetPort
               number: {{ .Values.service.port }}
 {{- end }}
