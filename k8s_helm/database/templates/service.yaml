@@ -8,7 +8,8 @@ metadata:
     {{- include "database.labels" . | nindent 4 }}
 spec:
   selector:
-    {{- include "database.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "database.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
   - port: 5432
     targetPort: 5432
