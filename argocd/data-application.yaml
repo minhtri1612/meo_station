@@ -18,9 +18,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: meo-stationery
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
     - CreateNamespace=true
     - Replace=true
