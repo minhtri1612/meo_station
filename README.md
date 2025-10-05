@@ -13,6 +13,8 @@ A modern, full-stack e-commerce platform for stationery products, built with Nex
 - 🎨 **Modern UI**: Modern UI components from Radix UI.
 - 🐳 **Containerized**: Ready for deployment with Docker.
 - ☸️ **Kubernetes Ready**: Configured for Kubernetes deployment.
+- 📊 **Monitoring**: Full monitoring stack with Prometheus and Grafana.
+- 🔍 **Database Metrics**: PostgreSQL monitoring with custom dashboards.
 
 ## 🛠️ Tech Stack
 
@@ -22,6 +24,8 @@ A modern, full-stack e-commerce platform for stationery products, built with Nex
 - **Containerization**: Docker
 - **Orchestration**: Kubernetes
 - **Deployment**: Helm
+- **Monitoring**: Prometheus + Grafana
+- **Database Monitoring**: PostgreSQL Exporter
 
 ## 🚀 Getting Started (Local Development)
 
@@ -88,3 +92,89 @@ This application is designed to be deployed to a Kubernetes cluster using Helm.
     ```bash
     helm uninstall backend -n meo-stationery
     ```
+
+## 📊 Monitoring & Observability
+
+This project includes a complete monitoring stack with Prometheus and Grafana for comprehensive observability of your application and database performance.
+
+### 🎯 **Monitoring Features**
+
+- **📈 Application Metrics**: Real-time monitoring of your Next.js application
+- **🗄️ Database Monitoring**: PostgreSQL performance metrics and health checks
+- **🚀 GitOps Integration**: Monitoring deployed via ArgoCD for automated management
+- **🌐 Web Access**: Fast web interfaces (no port-forwarding needed!)
+
+### 🛠️ **Monitoring Stack Components**
+
+1. **Prometheus**: Metrics collection and storage
+2. **Grafana**: Visualization and dashboards
+3. **PostgreSQL Exporter**: Database-specific metrics
+4. **NGINX Ingress**: Fast web access to all monitoring tools
+
+### 🌐 **Access Monitoring Dashboards**
+
+After deploying with our GitOps setup, access your monitoring via web URLs:
+
+- **🏪 Meo Stationery App**: http://meo-stationery.local
+- **📊 Grafana Dashboards**: http://grafana.local  
+- **🔍 Prometheus Metrics**: http://prometheus.local
+
+**Login Credentials:**
+- **Grafana Username**: `admin`
+- **Grafana Password**: `prom-operator`
+
+### 📈 **Database Monitoring Dashboard**
+
+![Grafana PostgreSQL Dashboard](https://raw.githubusercontent.com/minhtri1612/meo_station/main/grafana.png)
+
+Our custom PostgreSQL dashboard provides comprehensive database monitoring including:
+
+- **Cache Hit Ratio**: Database cache efficiency (>99% indicates healthy performance)
+- **Queries Per Second**: Real-time database query load
+- **Conflicts/Deadlocks**: Database concurrency monitoring  
+- **Database Rows**: Track data growth and activity trends
+
+### 🚀 **Quick Start Monitoring**
+
+1. **Start your environment:**
+   ```bash
+   minikube start
+   ```
+
+2. **Wait for all services to start** (1-2 minutes)
+
+3. **Access dashboards directly in browser:**
+   - Application: http://meo-stationery.local
+   - Monitoring: http://grafana.local
+
+### 🔧 **Monitoring Architecture**
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   PostgreSQL    │────│ PostgreSQL       │────│   Prometheus    │
+│   Database      │    │ Exporter         │    │   (Metrics)     │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                                         │
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Next.js       │────│ NGINX Ingress    │    │    Grafana      │
+│   Backend       │    │ (Web Access)     │    │ (Dashboards)    │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### 📝 **Key Monitoring Metrics**
+
+**Application Metrics:**
+- Request rate and response times
+- Error rates and status codes  
+- Resource utilization (CPU, Memory)
+
+**Database Metrics:**
+- Connection count and query performance
+- Cache hit ratios and index usage
+- Database size and growth trends
+- Lock conflicts and deadlock detection
+
+**Infrastructure Metrics:**
+- Pod health and restart counts
+- Network traffic and ingress performance
+- Storage utilization and I/O metrics
