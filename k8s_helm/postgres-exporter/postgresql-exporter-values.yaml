@@ -1,0 +1,58 @@
+# PostgreSQL Exporter Configuration for Prometheus
+config:
+  datasource:
+    # Connection string to your PostgreSQL database
+    host: postgres.meo-stationery.svc.cluster.local
+    port: "5432"
+    user: meo_admin
+    password: MeoStationery2025!
+    database: meo_stationery
+    sslmode: disable
+
+  # Auto-discover databases
+  autoDiscoverDatabases: false
+  
+  # Disable default metrics that might not be needed
+  disableDefaultMetrics: false
+  
+  # Custom queries can be added here
+  queries: {}
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 9187
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+    prometheus.io/path: "/metrics"
+
+# ServiceMonitor for Prometheus Operator (if using)
+serviceMonitor:
+  enabled: true
+  namespace: meo-stationery
+  labels:
+    app: postgres-exporter
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Resource limits
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Security context
+securityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
+  runAsNonRoot: true
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9187"
+  prometheus.io/path: "/metrics"
