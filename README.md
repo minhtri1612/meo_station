@@ -125,7 +125,7 @@ After deploying with our GitOps setup, access your monitoring via web URLs:
 
 ### 📈 **Database Monitoring Dashboard**
 
-![Grafana PostgreSQL Dashboard](https://raw.githubusercontent.com/minhtri1612/meo_station/main/grafana.png)
+![Grafana PostgreSQL Dashboard](grafana.png)
 
 Our custom PostgreSQL dashboard provides comprehensive database monitoring including:
 
