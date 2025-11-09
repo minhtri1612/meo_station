@@ -15,7 +15,7 @@ serviceAccount:
 
 auth:
   username: "meo_admin"
-  password: "MeoStationery2025!" # <-- Change for production and manage securely
+  password: "MeoStationery2025!"
   database: "meo_stationery"
 
 persistence:
