@@ -13,9 +13,6 @@ service:
 serviceAccount:
   create: false
 
-  name: ""
-httpRoute:
-  enabled: false
 auth:
   username: "meo_admin"
   password: "MeoStationery2025!" # <-- Change for production and manage securely
@@ -23,6 +20,15 @@ auth:
 
 persistence:
   size: 1Gi
+  storageClassName: gp2-ap-southeast-2a
+  provisionStorageClass: true
+  allowedTopologies:
+    - key: topology.ebs.csi.aws.com/zone
+      values:
+        - ap-southeast-2a
+
+nodeSelector:
+  role: db
 
 livenessProbe:
   enabled: true

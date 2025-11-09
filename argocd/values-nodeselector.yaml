@@ -1,0 +1,43 @@
+global:
+  domain: argocd.local
+
+controller:
+  nodeSelector:
+    role: web
+
+server:
+  nodeSelector:
+    role: web
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    hosts: []
+    paths:
+      - path: /
+        pathType: Prefix
+
+repoServer:
+  nodeSelector:
+    role: web
+
+applicationSet:
+  nodeSelector:
+    role: web
+
+dex:
+  nodeSelector:
+    role: web
+
+redis:
+  nodeSelector:
+    role: web
+
+notificationsController:
+  nodeSelector:
+    role: web
+
+configs:
+  params:
+    server.insecure: "true"

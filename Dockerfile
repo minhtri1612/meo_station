@@ -39,6 +39,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
+RUN npm install -g prisma@6.13.0 tsx@4.20.3
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
