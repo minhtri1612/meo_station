@@ -1,0 +1,61 @@
+- name: Update Backend Config and Test Access
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Copy updated values.yaml
+      copy:
+        src: ../k8s_helm/backend/values.yaml
+        dest: /home/ubuntu/k8s_helm/backend/values.yaml
+
+    - name: Upgrade backend with new config
+      command: >
+        helm upgrade backend backend
+        --namespace meo-stationery
+        --values backend/values.yaml
+        --reuse-values
+      args:
+        chdir: /home/ubuntu/k8s_helm
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Wait for pods to restart
+      pause:
+        seconds: 10
+
+    - name: Test ingress from server
+      shell: 'curl -H "Host: meo-stationery.local" http://localhost:30098 -v -L'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: curl_test
+      ignore_errors: yes
+
+    - name: Show curl test result
+      debug:
+        var: curl_test.stdout_lines
+
+    - name: Get NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport
+
+    - name: Show final access info
+      debug:
+        msg: |
+          ============================================
+          UPDATED CONFIGURATION:
+          ============================================
+          
+          Updated nextAuthUrl to include port: http://meo-stationery.local:30098
+          
+          Access your application:
+            http://meo-stationery.local:{{ nodeport.stdout }}
+          
+          Make sure /etc/hosts on your LOCAL machine has:
+            3.107.91.112 meo-stationery.local
+          
+          ============================================
+

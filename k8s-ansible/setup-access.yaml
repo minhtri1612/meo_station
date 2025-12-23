@@ -1,0 +1,65 @@
+- name: Setup Access to Backend
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Check if ingress exists
+      shell: kubectl get ingress -n meo-stationery
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_status
+      ignore_errors: yes
+
+    - name: Show ingress status
+      debug:
+        var: ingress_status.stdout_lines
+
+    - name: Get ingress controller external IP
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_ip
+      ignore_errors: yes
+
+    - name: Show ingress IP
+      debug:
+        msg: "Ingress Controller IP: {{ ingress_ip.stdout }}"
+
+    - name: Get ingress controller NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_port
+      ignore_errors: yes
+
+    - name: Show NodePort
+      debug:
+        msg: "Ingress NodePort: {{ ingress_port.stdout }}"
+
+    - name: Get master node public IP
+      shell: curl -s ifconfig.me || curl -s https://api.ipify.org
+      register: master_public_ip
+      ignore_errors: yes
+
+    - name: Show access information
+      debug:
+        msg: |
+          ============================================
+          ACCESS OPTIONS:
+          ============================================
+          
+          Option 1: Port Forward (from your local machine):
+            kubectl port-forward -n meo-stationery svc/backend 3000:80
+            Then access: http://localhost:3000
+          
+          Option 2: Via Ingress (if configured):
+            Add to /etc/hosts: {{ master_public_ip.stdout }} meo-stationery.local
+            Access: http://meo-stationery.local
+          
+          Option 3: Direct NodePort (if available):
+            Access: http://{{ master_public_ip.stdout }}:{{ ingress_port.stdout }}
+          
+          ============================================
+

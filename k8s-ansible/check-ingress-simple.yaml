@@ -1,0 +1,46 @@
+- name: Check NGINX Ingress Access
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Check if backend ingress exists
+      shell: kubectl get ingress -n meo-stationery
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_status
+
+    - name: Show ingress details
+      debug:
+        var: ingress_status.stdout_lines
+
+    - name: Get ingress controller NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport
+
+    - name: Get master public IP
+      shell: curl -s ifconfig.me || curl -s https://api.ipify.org
+      register: master_ip
+      ignore_errors: yes
+
+    - name: Show access information
+      debug:
+        msg: |
+          ============================================
+          ACCESS YOUR APPLICATION:
+          ============================================
+          
+          Step 1: Add to your local /etc/hosts:
+            sudo echo "{{ master_ip.stdout }} meo-stationery.local" >> /etc/hosts
+          
+          Step 2: Access your application:
+            http://meo-stationery.local:{{ nodeport.stdout }}
+          
+          Master Node IP: {{ master_ip.stdout }}
+          Ingress NodePort: {{ nodeport.stdout }}
+          
+          ============================================
+

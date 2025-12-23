@@ -1,0 +1,30 @@
+- name: Test Ingress Routing
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Test ingress routing from inside cluster
+      shell: |
+        kubectl run curl-test --image=curlimages/curl:latest --rm -i --restart=Never -- \
+          curl -H "Host: meo-stationery.local" http://ingress-nginx-controller.ingress-nginx.svc.cluster.local -v
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+      register: curl_result
+
+    - name: Show curl result
+      debug:
+        var: curl_result.stdout_lines
+
+    - name: Check backend service endpoints
+      shell: kubectl get endpoints backend -n meo-stationery
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: endpoints
+
+    - name: Show endpoints
+      debug:
+        var: endpoints.stdout_lines
+

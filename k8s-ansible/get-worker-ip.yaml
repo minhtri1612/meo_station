@@ -1,0 +1,67 @@
+- name: Get Worker Node Public IP for Ingress Access
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Get worker node where ingress controller is running
+      shell: kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].spec.nodeName}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_node
+
+    - name: Get all node details
+      shell: kubectl get nodes -o json
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodes_json
+
+    - name: Get worker node public IP from Terraform state
+      shell: |
+        cd /home/ubuntu
+        if [ -f terraform-infra/terraform.tfstate ]; then
+          terraform -chdir=terraform-infra output -json worker_public_ips 2>/dev/null || echo "[]"
+        else
+          echo "[]"
+        fi
+      register: worker_ips
+      ignore_errors: yes
+
+    - name: Show worker IPs
+      debug:
+        var: worker_ips.stdout
+
+    - name: Get NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport
+
+    - name: Show access solution
+      debug:
+        msg: |
+          ============================================
+          SOLUTION:
+          ============================================
+          
+          Problem: Ingress controller is on worker node ip-10-0-2-84, not master!
+          Service has externalTrafficPolicy: Local, so NodePort only works on that node.
+          
+          Solution 1 - Use Port-Forward (EASIEST):
+            From your LOCAL machine:
+            kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
+            Then access: http://meo-stationery.local:8080
+          
+          Solution 2 - Get worker node public IP:
+            Check terraform outputs or AWS console for worker node public IP
+            Then access: http://meo-stationery.local:{{ nodeport.stdout }}
+          
+          Solution 3 - Change externalTrafficPolicy to Cluster:
+            This allows NodePort to work on any node
+          
+          NodePort: {{ nodeport.stdout }}
+          Ingress Node: {{ ingress_node.stdout }}
+          
+          ============================================
+

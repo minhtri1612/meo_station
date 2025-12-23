@@ -16,10 +16,25 @@ yarn-error.log*
 *.tfstate.*
 .terraform/
 
-# Keys
+# Keys and Certificates
 bastion-key.js
 # Ignore the private key file itself
 bastion-key
+bastion-key.pub
+*.pem
+*.key
+*.pub
+!*.pub.example
+k8s-key.pem
+k8s-key
+k8s.pem
+k8s
+terraform-infra/k8s-key.pem
+terraform-infra/k8s-key
+terraform-infra/k8s.pem
+terraform-infra/k8s
+k8s-ansible/k8s-key.pem
+k8s-ansible/k8s-key
 
 # Ignore SQL data dumps
 *.sql

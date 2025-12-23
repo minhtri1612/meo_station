@@ -1,0 +1,97 @@
+- name: Fix kubectl Access and Check Ingress
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Check ingress controller pods
+      shell: kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_pods
+
+    - name: Show ingress pods
+      debug:
+        var: ingress_pods.stdout_lines
+
+    - name: Check ingress controller service
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o yaml
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_svc
+
+    - name: Show ingress service
+      debug:
+        var: ingress_svc.stdout_lines
+
+    - name: Check which node ingress controller is running on
+      shell: kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o wide
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_nodes
+
+    - name: Show ingress nodes
+      debug:
+        var: ingress_nodes.stdout_lines
+
+    - name: Get NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport
+
+    - name: Test NodePort from master node
+      shell: 'curl -H "Host: meo-stationery.local" http://localhost:{{ nodeport.stdout }} -v -m 5'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport_test
+      ignore_errors: yes
+
+    - name: Show NodePort test
+      debug:
+        var: nodeport_test.stdout_lines
+
+    - name: Check if ingress controller is listening on NodePort
+      shell: 'netstat -tlnp | grep {{ nodeport.stdout }} || ss -tlnp | grep {{ nodeport.stdout }}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: port_check
+      ignore_errors: yes
+
+    - name: Show port check
+      debug:
+        var: port_check.stdout_lines
+
+    - name: Get all node IPs
+      shell: kubectl get nodes -o wide
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodes
+
+    - name: Show nodes
+      debug:
+        var: nodes.stdout_lines
+
+    - name: Show access instructions
+      debug:
+        msg: |
+          ============================================
+          DIAGNOSIS:
+          ============================================
+          
+          If ingress controller is on a worker node, you need to:
+          1. Access via worker node IP, not master IP
+          2. Or use port-forward from master
+          
+          NodePort: {{ nodeport.stdout }}
+          
+          Try accessing via worker node IP:
+            http://meo-stationery.local:{{ nodeport.stdout }}
+          
+          Or use port-forward:
+            kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
+            Then access: http://meo-stationery.local:8080
+          
+          ============================================
+

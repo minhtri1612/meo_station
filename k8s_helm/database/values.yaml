@@ -20,15 +20,11 @@ auth:
 
 persistence:
   size: 1Gi
-  storageClassName: gp2-ap-southeast-2a
-  provisionStorageClass: true
-  allowedTopologies:
-    - key: topology.ebs.csi.aws.com/zone
-      values:
-        - ap-southeast-2a
+  storageClassName: ""  # Empty string = use default storage class
+  provisionStorageClass: false
 
-nodeSelector:
-  role: db
+# nodeSelector:
+#   role: db
 
 livenessProbe:
   enabled: true

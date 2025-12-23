@@ -1,0 +1,69 @@
+- name: Fix Ingress Access - Check Security Group and Ingress
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Check ingress controller pods
+      shell: kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_pods
+
+    - name: Show ingress pods
+      debug:
+        var: ingress_pods.stdout_lines
+
+    - name: Check ingress details
+      shell: kubectl describe ingress backend -n meo-stationery
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: ingress_details
+      ignore_errors: yes
+
+    - name: Show ingress details
+      debug:
+        var: ingress_details.stdout_lines
+
+    - name: Test ingress from inside cluster
+      shell: curl -H "Host: meo-stationery.local" http://localhost:30098 -v
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: curl_test
+      ignore_errors: yes
+
+    - name: Show curl test result
+      debug:
+        var: curl_test.stdout_lines
+
+    - name: Get NodePort
+      shell: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: nodeport
+
+    - name: Show final instructions
+      debug:
+        msg: |
+          ============================================
+          FIX ACCESS ISSUE:
+          ============================================
+          
+          Problem: You added hosts entry on SERVER, but need it on LOCAL machine!
+          
+          Step 1: On YOUR LOCAL MACHINE (not server), run:
+            sudo echo "3.107.91.112 meo-stationery.local" >> /etc/hosts
+          
+          Step 2: Check if security group allows port {{ nodeport.stdout }}
+            The security group needs to allow inbound traffic on port {{ nodeport.stdout }}
+          
+          Step 3: Access:
+            http://meo-stationery.local:{{ nodeport.stdout }}
+          
+          Step 4: If still fails, check security group:
+            - Port {{ nodeport.stdout }} must be open in AWS security group
+            - Check terraform-infra/main.tf security group rules
+          
+          ============================================
+
