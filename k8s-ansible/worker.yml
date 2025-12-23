@@ -1,0 +1,56 @@
+- name: Join worker nodes to Kubernetes cluster
+  hosts: workers
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - conntrack
+          - curl
+          - iptables
+          - ipset
+          - socat
+          - ipvsadm
+        state: present
+        update_cache: yes
+
+    - name: Verify conntrack is available
+      command: which conntrack
+      register: conntrack_path
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if conntrack is not found
+      fail:
+        msg: "conntrack is not installed or not in PATH. Please run all.yaml playbook first."
+      when: conntrack_path.rc != 0
+
+    - name: Check if node is already part of the cluster
+      command: kubectl get nodes --no-headers -o custom-columns=NAME:.metadata.name
+      register: node_list
+      failed_when: false
+      changed_when: false
+      delegate_to: "{{ groups['masters'][0] }}"
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Skip joining if already joined
+      debug:
+        msg: "Node {{ inventory_hostname }} is already part of the cluster."
+      when: inventory_hostname in node_list.stdout_lines
+
+    - name: Generate kubeadm join command on master
+      command: kubeadm token create --print-join-command --ttl 24h
+      register: join_command
+      changed_when: false
+      delegate_to: "{{ groups['masters'][0] }}"
+      when: inventory_hostname not in node_list.stdout_lines
+
+    - name: Join worker node to cluster
+      command: "{{ join_command.stdout }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+      when: inventory_hostname not in node_list.stdout_lines

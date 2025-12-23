@@ -1,0 +1,77 @@
+- name: Initialize Kubernetes Master(s)
+  hosts: masters
+  become: yes
+  vars:
+    cluster_cidr: "10.244.0.0/16"
+    user: ubuntu
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - conntrack
+          - curl
+          - iptables
+          - ipset
+          - socat
+          - ipvsadm
+        state: present
+        update_cache: yes
+
+    - name: Verify conntrack is available
+      command: which conntrack
+      register: conntrack_path
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if conntrack is not found
+      fail:
+        msg: "conntrack is not installed or not in PATH. Please run all.yaml playbook first."
+      when: conntrack_path.rc != 0
+
+    - name: Initialize Kubernetes control-plane
+      command: >
+        kubeadm init
+        --pod-network-cidr={{ cluster_cidr }}
+        --apiserver-advertise-address={{ ansible_default_ipv4.address }}
+        --control-plane-endpoint={{ ansible_default_ipv4.address }}
+        --upload-certs
+      args:
+        creates: /etc/kubernetes/admin.conf
+      register: kubeadm_init
+      retries: 2
+      delay: 10
+      until: kubeadm_init.rc == 0
+
+
+    - name: Create .kube directory for admin
+      file:
+        path: /home/{{ user }}/.kube
+        state: directory
+        mode: '0755'
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: Copy kubeconfig for admin user
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ user }}/.kube/config
+        remote_src: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0644'
+
+    - name: Check cluster nodes
+      command: kubectl get nodes --no-headers
+      register: nodes
+      changed_when: false
+      environment:
+        KUBECONFIG: /home/{{ user }}/.kube/config
+    - debug:
+        var: nodes.stdout_lines
+
+
+    - name: Deploy Calico CNI
+      command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      environment:
+        KUBECONFIG: /home/{{ user }}/.kube/config
