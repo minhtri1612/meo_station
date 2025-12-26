@@ -3,8 +3,6 @@ kind: Application
 metadata:
   name: meo-station-database
   namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-options: Replace=true
 spec:
   project: default
   source:
@@ -19,14 +17,15 @@ spec:
     namespace: meo-stationery
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: false
+      selfHeal: false
     syncOptions:
     - CreateNamespace=true
-    - Replace=true
+    - ServerSideApply=true
   ignoreDifferences:
   - group: apps
     kind: StatefulSet
     jsonPointers:
     - /spec/volumeClaimTemplates
     - /spec/serviceName
+    - /spec/selector
