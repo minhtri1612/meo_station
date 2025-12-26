@@ -1,0 +1,42 @@
+- name: Install NGINX Ingress Controller on Master
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Add Ingress Nginx Helm repository
+      shell: helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Update Helm repositories
+      shell: helm repo update
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Install Ingress Nginx Controller configuration
+      shell: |
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.hostNetwork=true \
+          --set controller.dnsPolicy=ClusterFirstWithHostNet \
+          --set controller.kind=DaemonSet \
+          --set controller.nodeSelector."node-role\.kubernetes\.io/control-plane"="" \
+          --set controller.tolerations[0].key="node-role.kubernetes.io/control-plane" \
+          --set controller.tolerations[0].operator="Exists" \
+          --set controller.tolerations[0].effect="NoSchedule" \
+          --set controller.service.type=ClusterIP \
+          --set controller.admissionWebhooks.enabled=false
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Wait for Ingress Controller to be ready
+      shell: kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Check Ingress Status
+      debug:
+        msg: "Ingress Controller installed! You can now access your app at http://{{ ansible_default_ipv4.address }} (Master IP)"

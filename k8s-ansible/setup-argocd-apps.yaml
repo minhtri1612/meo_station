@@ -1,0 +1,39 @@
+- name: Setup ArgoCD Applications
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Copy ArgoCD application manifests to master
+      copy:
+        src: "{{ playbook_dir }}/../argocd/"
+        dest: /tmp/argocd-apps/
+        directory_mode: yes
+
+    - name: Wait for ArgoCD to be ready
+      shell: kubectl wait --namespace argocd --for=condition=ready pod --selector=app.kubernetes.io/name=argocd-server --timeout=300s
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+
+    - name: Apply ArgoCD applications
+      shell: kubectl apply -f /tmp/argocd-apps/{{ item }}
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      loop:
+        - be-application.yaml
+        - data-application.yaml
+      ignore_errors: yes
+
+    - name: Display ArgoCD applications status
+      shell: kubectl get applications -n argocd
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: argocd_apps
+      ignore_errors: yes
+
+    - name: Show ArgoCD applications
+      debug:
+        var: argocd_apps.stdout_lines
+

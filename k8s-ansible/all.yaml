@@ -1,7 +1,14 @@
 - name: Prepare all nodes for Kubernetes
   hosts: all
   become: yes
+  vars:
+    ansible_become_timeout: 60
   tasks:
+    - name: Clean up broken Helm apt repo (if exists)
+      file:
+        path: /etc/apt/sources.list.d/helm-stable-debian.list
+        state: absent
+
     - name: Disable swap immediately
       command: swapoff -a
       when: ansible_swaptotal_mb | int > 0
@@ -100,10 +107,22 @@
         state: absent
         # mode: '0755'
 
-    - name: Download and dearmor Kubernetes GPG key and Add Kubernetes APT repository
-      shell: |
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
-        echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+    - name: Download Kubernetes Release key
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key
+        dest: /tmp/k8s-release.key
+        mode: '0644'
+        force: yes
+
+    - name: Dearmor Kubernetes key
+      shell: cat /tmp/k8s-release.key | gpg --dearmor --yes -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
+      # args:
+      #   creates: /usr/share/keyrings/kubernetes-archive-keyring.gpg
+
+    - name: Add Kubernetes APT repository
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /"
       register: k8s_repo
 
 
@@ -113,6 +132,21 @@
         update_cache: yes
       when: k8s_repo.changed
 
+
+
+
+    - name: Download Helm binary
+      unarchive:
+        src: https://get.helm.sh/helm-v3.13.3-linux-amd64.tar.gz
+        dest: /tmp
+        remote_src: yes
+    
+    - name: Move Helm binary to path
+      copy:
+        src: /tmp/linux-amd64/helm
+        dest: /usr/local/bin/helm
+        mode: '0755'
+        remote_src: yes
 
     - name: Install Kubernetes components
       apt:
@@ -126,9 +160,23 @@
     - name: Hold Kubernetes packages at current version
       shell: apt-mark hold kubelet kubeadm kubectl
 
+    - name: Clean up disk space (Docker images and unused resources)
+      shell: |
+        # Clean up unused Docker images (older than 12 hours)
+        docker system prune -af --filter "until=12h" || true
+        # Clean up old logs
+        journalctl --vacuum-time=2d || true
+        # Show disk usage
+        df -h / | tail -1
+      ignore_errors: yes
+      when: ansible_connection != 'local'
+
   handlers:
     - name: Restart containerd
       service:
         name: containerd
         state: restarted
         enabled: true
+      ignore_errors: yes
+      poll: 10
+      ignore_errors: yes

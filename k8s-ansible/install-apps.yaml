@@ -1,0 +1,29 @@
+- name: Install ArgoCD Applications
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+    local_argocd_dir: ../argocd  # Path relative to playbook
+
+  tasks:
+    - name: Copy ArgoCD application manifests to master
+      copy:
+        src: "{{ local_argocd_dir }}"
+        dest: /home/ubuntu/
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Apply Backend Application
+      shell: kubectl apply -f /home/ubuntu/argocd/be-application.yaml
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Apply Database Application
+      shell: kubectl apply -f /home/ubuntu/argocd/data-application.yaml
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Display App Status
+      debug:
+        msg: "ArgoCD Applications applied. Check UI at http://argocd.local"

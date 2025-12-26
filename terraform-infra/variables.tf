@@ -14,7 +14,7 @@ variable "instance_type" {
 
 variable "my_ip" {
   description = "Your public IP with /32 (for SSH)"
-  default     = "123.21.133.189/32"
+  default     = "0.0.0.0/0"
 }
 
 variable "master_count" {

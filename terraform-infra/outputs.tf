@@ -9,3 +9,7 @@ output "worker_public_ips" {
 output "ssh_key_file" {
   value = local_file.private_key.filename
 }
+
+output "cloudwatch_dashboard_name" {
+  value = aws_cloudwatch_dashboard.k8s_dashboard.dashboard_name
+}

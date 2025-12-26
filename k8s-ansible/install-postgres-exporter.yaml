@@ -1,0 +1,44 @@
+- name: Install PostgreSQL Exporter for Prometheus
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Add Prometheus Community Helm repository (if not already added)
+      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Update Helm repositories
+      shell: helm repo update
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Copy PostgreSQL Exporter values file to master
+      copy:
+        src: "{{ playbook_dir }}/../k8s_helm/postgres-exporter/postgresql-exporter-values.yaml"
+        dest: /tmp/postgresql-exporter-values.yaml
+
+    - name: Install PostgreSQL Exporter using existing values file
+      shell: |
+        helm upgrade --install postgres-exporter prometheus-community/prometheus-postgres-exporter \
+          --namespace meo-stationery \
+          --values /tmp/postgresql-exporter-values.yaml \
+          --wait --timeout=5m
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Wait for PostgreSQL Exporter to be ready
+      shell: kubectl wait --namespace meo-stationery --for=condition=ready pod --selector=app.kubernetes.io/name=prometheus-postgres-exporter --timeout=120s
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+
+    - name: Display PostgreSQL Exporter status
+      debug:
+        msg: |
+          PostgreSQL Exporter installed!
+          Metrics endpoint: postgres-exporter-prometheus-postgres-exporter.meo-stationery.svc.cluster.local:9187/metrics
+          Prometheus will automatically discover it via ServiceMonitor
+

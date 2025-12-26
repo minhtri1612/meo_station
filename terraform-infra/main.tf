@@ -74,19 +74,17 @@ resource "aws_vpc" "k8s_vpc" {
 }
 
 resource "aws_subnet" "public_subnet_a" {
-  vpc_id                  = aws_vpc.k8s_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-  tags                    = { Name = "k8s-public-a" }
+  vpc_id            = aws_vpc.k8s_vpc.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = data.aws_availability_zones.available.names[0]
+  tags              = { Name = "k8s-public-a" }
 }
 
 resource "aws_subnet" "public_subnet_b" {
-  vpc_id                  = aws_vpc.k8s_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
-  tags                    = { Name = "k8s-public-b" }
+  vpc_id            = aws_vpc.k8s_vpc.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = data.aws_availability_zones.available.names[1]
+  tags              = { Name = "k8s-public-b" }
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -148,6 +146,22 @@ resource "aws_security_group" "k8s_sg" {
   }
 
   ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -165,6 +179,36 @@ resource "aws_security_group" "k8s_sg" {
 }
 
 # -----------------------
+# IAM Role for K8s Nodes
+# -----------------------
+resource "aws_iam_role" "k8s_role" {
+  name = "k8s_role_new"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_policy" {
+  role       = aws_iam_role.k8s_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+resource "aws_iam_instance_profile" "k8s_profile" {
+  name = "k8s_profile_new"
+  role = aws_iam_role.k8s_role.name
+}
+
+# -----------------------
 # EC2 Instances
 # -----------------------
 resource "aws_instance" "masters" {
@@ -175,6 +219,7 @@ resource "aws_instance" "masters" {
   vpc_security_group_ids      = [aws_security_group.k8s_sg.id]
   key_name                    = aws_key_pair.k8s_key.key_name
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.k8s_profile.name
 
   tags = { Name = "k8s-master-${count.index + 1}" }
 }
@@ -187,6 +232,7 @@ resource "aws_instance" "workers" {
   vpc_security_group_ids      = [aws_security_group.k8s_sg.id]
   key_name                    = aws_key_pair.k8s_key.key_name
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.k8s_profile.name
 
   tags = { Name = "k8s-worker-${count.index + 1}" }
 }
