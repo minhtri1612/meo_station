@@ -164,7 +164,7 @@
       shell: |
         # Clean up unused Docker images (older than 12 hours)
         docker system prune -af --filter "until=12h" || true
-        # Clean up old logs
+        # Clean up old logs8
         journalctl --vacuum-time=2d || true
         # Show disk usage
         df -h / | tail -1

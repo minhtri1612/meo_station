@@ -83,26 +83,6 @@ spec:
               
               echo "Database host: $DB_HOST, port: $DB_PORT"
               
-              # Check if database pod exists and is running (quick check)
-              echo "Checking database pod status..."
-              DB_POD_READY=false
-              for i in {1..10}; do
-                if kubectl get pod -n meo-stationery -l app.kubernetes.io/name=postgres -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q Running; then
-                  DB_POD_READY=true
-                  echo "Database pod is Running!"
-                  break
-                fi
-                echo "Database pod not ready yet... ($i/10)"
-                sleep 2
-              done
-              
-              if [ "$DB_POD_READY" = false ]; then
-                echo "WARNING: Database pod is not Running. Checking pod status..."
-                kubectl get pods -n meo-stationery -l app.kubernetes.io/name=postgres || true
-                echo "This may be due to disk pressure or resource constraints."
-                echo "Will attempt connection anyway..."
-              fi
-              
               # Wait for database - try to connect using nc (netcat) or telnet
               while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
                 # Try to connect using nc if available, otherwise use timeout with bash
@@ -122,16 +102,6 @@ spec:
                 RETRY_COUNT=$((RETRY_COUNT + 1))
                 if [ $((RETRY_COUNT % 5)) -eq 0 ]; then
                   echo "Still waiting for database... (attempt $RETRY_COUNT/$MAX_RETRIES)"
-                  # Check if database pod is still pending/failing
-                  DB_POD_STATUS=$(kubectl get pod -n meo-stationery -l app.kubernetes.io/name=postgres -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Unknown")
-                  if [ "$DB_POD_STATUS" != "Running" ]; then
-                    echo "WARNING: Database pod status: $DB_POD_STATUS"
-                    if [ $RETRY_COUNT -ge 20 ]; then
-                      echo "ERROR: Database pod has been in non-Running state for too long. Exiting."
-                      kubectl describe pod -n meo-stationery -l app.kubernetes.io/name=postgres | tail -20 || true
-                      exit 1
-                    fi
-                  fi
                 fi
                 sleep 2
               done
@@ -140,8 +110,6 @@ spec:
                 echo "ERROR: Database connection timeout after $MAX_RETRIES attempts"
                 echo "DATABASE_URL: $DATABASE_URL"
                 echo "DB_HOST: $DB_HOST, DB_PORT: $DB_PORT"
-                echo "Database pod status:"
-                kubectl get pods -n meo-stationery -l app.kubernetes.io/name=postgres || true
                 exit 1
               fi
               

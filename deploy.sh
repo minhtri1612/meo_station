@@ -214,8 +214,8 @@ ansible-playbook -i inventory.ini install-ingress.yaml
 print_step "  → Installing ArgoCD..."
 ansible-playbook -i inventory.ini install-argocd.yaml
 
-print_step "  → Installing ArgoCD Applications..."
-ansible-playbook -i inventory.ini install-apps.yaml
+# print_step "  → Installing ArgoCD Applications..."
+# ansible-playbook -i inventory.ini install-apps.yaml
 
 
 # Step 4: Copy Helm charts to master and deploy
@@ -351,7 +351,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
         if [ \"\$PRODUCT_COUNT\" -gt 0 ]; then
             echo \"Database already has \$PRODUCT_COUNT products. Migration should be quick.\"
         fi
-        helm upgrade backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=15m || {
+        helm upgrade backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=15m --force || {
             echo 'Helm upgrade failed, checking migration job logs...'
             echo 'Getting migration pods...'
             kubectl get pods -n meo-stationery | grep migration
@@ -364,7 +364,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
         }
     else
         echo 'Installing backend...'
-        helm install backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=20m || {
+        helm install backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=20m --force || {
             echo 'Helm install failed, checking migration job logs...'
             echo 'Getting migration pods...'
             kubectl get pods -n meo-stationery | grep migration
