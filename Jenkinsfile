@@ -189,18 +189,10 @@ pipeline {
                                 mkdir -p "$HOME/.local/bin"
                                 TRIVY_BIN="$HOME/.local/bin/trivy"
                                 
-                                # Use a stable version (fallback if GitHub API fails)
+                                # Use a stable version
+                                # Note: Using fixed version to avoid Groovy parsing issues with version detection
                                 TRIVY_VERSION="0.54.0"
-                                
-                                # Try to get latest version from GitHub API (simpler parsing)
-                                LATEST_VERSION=$(curl -s --max-time 5 https://api.github.com/repos/aquasecurity/trivy/releases/latest 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/' || echo "")
-                                
-                                if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "null" ] && [ "$LATEST_VERSION" != "" ]; then
-                                    TRIVY_VERSION="$LATEST_VERSION"
-                                    echo "Installing Trivy version: ${TRIVY_VERSION}"
-                                else
-                                    echo "Using fallback Trivy version: ${TRIVY_VERSION}"
-                                fi
+                                echo "Installing Trivy version: ${TRIVY_VERSION}"
                                 
                                 # Download and install Trivy using curl (wget not available)
                                 echo "Downloading Trivy..."
