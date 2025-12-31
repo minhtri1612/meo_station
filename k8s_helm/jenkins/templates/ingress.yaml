@@ -41,17 +41,5 @@ spec:
                   number: {{ $.Values.service.port }}
           {{- end }}
     {{- end }}
-    {{- if .Values.ingress.allowNoHost }}
-    # Allow requests without hostname (for webhooks, etc.)
-    - http:
-        paths:
-          - path: /github-webhook
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "jenkins.fullname" . }}
-                port:
-                  number: {{ .Values.service.port }}
-    {{- end }}
 {{- end }}
 
