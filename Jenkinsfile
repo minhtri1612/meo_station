@@ -171,81 +171,67 @@ pipeline {
             }
         }
         
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    def imageTag = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
-                    def imageTagLatest = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"
-                    
-                    echo "Building Docker image: ${imageTag}"
-                    
-                    sh """
-                        docker build -t ${imageTag} -t ${imageTagLatest} .
-                    """
-                    
-                    // Store image tags for later stages
-                    env.DOCKER_IMAGE_FULL = imageTag
-                }
-            }
-        }
-        
-        stage('Trivy Docker Image Scanning') {
-            steps {
-                script {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        def imageToScan = env.DOCKER_IMAGE_FULL
-                        sh """
-                            export PATH="\\\$HOME/.local/bin:\\\${PATH}"
-                            
-                            if command -v trivy &> /dev/null; then
-                                echo "Running Trivy Docker image scan..."
-                                echo "Scanning image: ${imageToScan}"
-                                
-                                # Scan Docker image - report vulnerabilities but don't fail build
-                                trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress '${imageToScan}' > trivy-image-scan.txt 2>&1 || {
-                                    echo "Trivy image scan completed (exit code: \\\$?)"
-                                }
-                                
-                                echo ""
-                                echo "=== Trivy Docker Image Scan Results ==="
-                                if [ -f trivy-image-scan.txt ]; then
-                                    cat trivy-image-scan.txt
-                                fi
-                                echo "========================="
-                                echo "✅ Trivy Docker image scan completed"
-                            else
-                                echo "⚠️ Trivy not found, skipping image scan"
-                            fi
-                        """
-                    }
-                    echo "⚠️ Trivy Docker image scanning completed (may have warnings)"
-                }
-            }
-        }
-        
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'docker-hub-credentials',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh """
-                            echo "Logging into Docker Hub..."
-                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                            
-                            echo "Pushing Docker image..."
-                            docker push ${env.DOCKER_IMAGE_FULL}
-                            docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
-                            
-                            echo "Logging out from Docker Hub..."
-                            docker logout
-                        """
-                    }
-                }
-            }
-        }
+        // Docker stages disabled - cluster uses containerd, not Docker
+        // To enable Docker, you would need to:
+        // 1. Install Docker in Jenkins pod, OR
+        // 2. Use Kaniko for building images without Docker daemon
+        // stage('Build Docker Image') {
+        //     steps {
+        //         script {
+        //             def imageTag = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
+        //             def imageTagLatest = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"
+        //             
+        //             echo "Building Docker image: ${imageTag}"
+        //             
+        //             sh """
+        //                 docker build -t ${imageTag} -t ${imageTagLatest} .
+        //             """
+        //             
+        //             env.DOCKER_IMAGE_FULL = imageTag
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Trivy Docker Image Scanning') {
+        //     steps {
+        //         script {
+        //             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+        //                 def imageToScan = env.DOCKER_IMAGE_FULL
+        //                 sh """
+        //                     export PATH="\\\$HOME/.local/bin:\\\${PATH}"
+        //                     
+        //                     if command -v trivy &> /dev/null; then
+        //                         echo "Running Trivy Docker image scan..."
+        //                         trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress '${imageToScan}' > trivy-image-scan.txt 2>&1 || true
+        //                         
+        //                         echo "=== Trivy Docker Image Scan Results ==="
+        //                         [ -f trivy-image-scan.txt ] && cat trivy-image-scan.txt || true
+        //                         echo "========================="
+        //                     fi
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Push Docker Image') {
+        //     steps {
+        //         script {
+        //             withCredentials([usernamePassword(
+        //                 credentialsId: 'docker-hub-credentials',
+        //                 usernameVariable: 'DOCKER_USER',
+        //                 passwordVariable: 'DOCKER_PASS'
+        //             )]) {
+        //                 sh """
+        //                     echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+        //                     docker push ${env.DOCKER_IMAGE_FULL}
+        //                     docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
+        //                     docker logout
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
         
         stage('Trivy Kubernetes Scanning') {
             steps {
@@ -300,28 +286,21 @@ pipeline {
             }
         }
         
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    // Get Kubernetes config from Jenkins master
-                    // Assumes kubectl and helm are installed on Jenkins agent
-                    // and kubeconfig is available
-                    
-                    sh """
-                        echo "Deploying to Kubernetes namespace: ${K8S_NAMESPACE}"
-                        
-                        # Update Helm chart values with new image
-                        helm upgrade --install ${HELM_RELEASE_NAME} ${HELM_CHART_PATH} \\
-                            --namespace ${K8S_NAMESPACE} \\
-                            --set workload.image=${env.DOCKER_IMAGE_FULL} \\
-                            --set workload.imagePullPolicy=Always \\
-                            --wait --timeout=10m
-                        
-                        echo "Deployment completed successfully!"
-                    """
-                }
-            }
-        }
+        // Deploy stage disabled - requires Docker image
+        // stage('Deploy to Kubernetes') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Deploying to Kubernetes namespace: ${K8S_NAMESPACE}"
+        //                 helm upgrade --install ${HELM_RELEASE_NAME} ${HELM_CHART_PATH} \\
+        //                     --namespace ${K8S_NAMESPACE} \\
+        //                     --set workload.image=${env.DOCKER_IMAGE_FULL} \\
+        //                     --set workload.imagePullPolicy=Always \\
+        //                     --wait --timeout=10m
+        //             """
+        //         }
+        //     }
+        // }
         
         stage('Run Database Migrations') {
             steps {
@@ -378,8 +357,10 @@ pipeline {
         success {
             script {
                 echo "✅ Pipeline succeeded!"
-                echo "Docker image: ${env.DOCKER_IMAGE_FULL}"
-                echo "Deployed to: ${K8S_NAMESPACE}/${HELM_RELEASE_NAME}"
+                echo "Application built successfully!"
+                // Docker stages are disabled - cluster uses containerd
+                // echo "Docker image: ${env.DOCKER_IMAGE_FULL}"
+                // echo "Deployed to: ${K8S_NAMESPACE}/${HELM_RELEASE_NAME}"
             }
         }
         failure {
@@ -390,10 +371,8 @@ pipeline {
         }
         always {
             script {
-                // Clean up Docker images to save space
-                sh '''
-                    docker image prune -f || true
-                '''
+                // Docker cleanup disabled - cluster uses containerd
+                echo "Pipeline completed"
             }
         }
     }
