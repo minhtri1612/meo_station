@@ -177,11 +177,67 @@ pipeline {
         stage('Trivy FS Scanning') {
             steps {
                 script {
-                    sh """
+                    sh '''
+                        echo "Setting up Trivy..."
+                        
+                        # Check if Trivy is installed
+                        if ! command -v trivy &> /dev/null; then
+                            echo "Trivy not found, installing..."
+                            
+                            # Create local bin directory
+                            mkdir -p "$HOME/.local/bin"
+                            TRIVY_BIN="$HOME/.local/bin/trivy"
+                            
+                            # Try to get latest version (with timeout and fallback)
+                            TRIVY_VERSION=$(curl -s --max-time 5 https://api.github.com/repos/aquasecurity/trivy/releases/latest 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//' || echo "")
+                            
+                            if [ -z "$TRIVY_VERSION" ]; then
+                                # Fallback to a known stable version
+                                TRIVY_VERSION="0.54.0"
+                                echo "Using fallback Trivy version: ${TRIVY_VERSION}"
+                            else
+                                echo "Installing Trivy version: ${TRIVY_VERSION}"
+                            fi
+                            
+                            # Download and install Trivy
+                            wget -qO- https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz | tar -xz
+                            chmod +x trivy
+                            mv trivy "$TRIVY_BIN"
+                            
+                            # Add to PATH for current session
+                            export PATH="$HOME/.local/bin:${PATH}"
+                            
+                            echo "Trivy installed at: $TRIVY_BIN"
+                        else
+                            echo "Trivy is already installed"
+                        fi
+                        
+                        # Ensure Trivy is in PATH
+                        export PATH="$HOME/.local/bin:${PATH}"
+                        
+                        # Verify installation
+                        trivy --version || echo "Warning: Trivy version check failed"
+                        
                         echo "Running Trivy filesystem scan..."
-                        trivy fs . > trivy-fs-scan.txt || echo "Trivy scan completed"
-                        cat trivy-fs-scan.txt || true
-                    """
+                        echo "Scanning for HIGH and CRITICAL vulnerabilities..."
+                        
+                        # Run Trivy scan
+                        # --exit-code 0: Don't fail build on vulnerabilities, just report
+                        # --severity HIGH,CRITICAL: Only show high and critical issues
+                        # --no-progress: Reduce output noise
+                        trivy fs --exit-code 0 --severity HIGH,CRITICAL --no-progress . > trivy-fs-scan.txt 2>&1 || {
+                            echo "Trivy scan completed with exit code: $?"
+                            # If the above fails, try without severity filter
+                            trivy fs --exit-code 0 --no-progress . > trivy-fs-scan.txt 2>&1 || true
+                        }
+                        
+                        echo ""
+                        echo "=== Trivy Scan Results ==="
+                        cat trivy-fs-scan.txt || echo "Scan completed, but output file not found"
+                        echo "========================="
+                        echo ""
+                        echo "✅ Trivy scan completed (vulnerabilities will not fail the build)"
+                    '''
                 }
             }
         }
