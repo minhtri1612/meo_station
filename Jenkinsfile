@@ -205,140 +205,130 @@ pipeline {
             }
         }
         
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    def imageTag = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
-                    def imageTagLatest = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"
-                    
-                    echo "Building Docker image: ${imageTag}"
-                    
-                    sh """
-                        docker build -t ${imageTag} -t ${imageTagLatest} .
-                    """
-                    
-                    // Store image tags for later stages
-                    env.DOCKER_IMAGE_FULL = imageTag
-                }
-            }
-        }
-        
-        stage('Trivy Docker Image Scanning') {
-            steps {
-                script {
-                    sh """
-                        echo "Running Trivy image scan..."
-                        trivy image ${env.DOCKER_IMAGE_FULL} > trivy-image-scan.txt || echo "Trivy image scan completed"
-                        cat trivy-image-scan.txt || true
-                    """
-                }
-            }
-        }
-        
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'docker-hub-credentials',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh """
-                            echo "Logging into Docker Hub..."
-                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                            
-                            echo "Pushing Docker image..."
-                            docker push ${env.DOCKER_IMAGE_FULL}
-                            docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
-                            
-                            echo "Logging out from Docker Hub..."
-                            docker logout
-                        """
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    // Get Kubernetes config from Jenkins master
-                    // Assumes kubectl and helm are installed on Jenkins agent
-                    // and kubeconfig is available
-                    
-                    sh """
-                        echo "Deploying to Kubernetes namespace: ${K8S_NAMESPACE}"
-                        
-                        # Update Helm chart values with new image
-                        helm upgrade --install ${HELM_RELEASE_NAME} ${HELM_CHART_PATH} \\
-                            --namespace ${K8S_NAMESPACE} \\
-                            --set workload.image=${env.DOCKER_IMAGE_FULL} \\
-                            --set workload.imagePullPolicy=Always \\
-                            --wait --timeout=10m
-                        
-                        echo "Deployment completed successfully!"
-                    """
-                }
-            }
-        }
-        
-        stage('Run Database Migrations') {
-            steps {
-                script {
-                    sh """
-                        echo "Running database migrations..."
-                        
-                        # Wait for backend pod to be ready
-                        kubectl wait --for=condition=ready pod \\
-                            -l app.kubernetes.io/name=backend \\
-                            -n ${K8S_NAMESPACE} \\
-                            --timeout=5m || true
-                        
-                        # Get the first backend pod
-                        BACKEND_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} \\
-                            -l app.kubernetes.io/name=backend \\
-                            -o jsonpath='{.items[0].metadata.name}')
-                        
-                        if [ -n "\$BACKEND_POD" ]; then
-                            echo "Running migrations in pod: \$BACKEND_POD"
-                            kubectl exec -n ${K8S_NAMESPACE} \$BACKEND_POD -- \\
-                                npx prisma migrate deploy || echo "Migrations may have already been applied"
-                        else
-                            echo "No backend pod found, skipping migrations"
-                        fi
-                    """
-                }
-            }
-        }
-        
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    sh """
-                        echo "Verifying deployment..."
-                        
-                        # Check pod status
-                        kubectl get pods -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
-                        
-                        # Check service
-                        kubectl get svc -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
-                        
-                        # Check ingress
-                        kubectl get ingress -n ${K8S_NAMESPACE} || echo "No ingress found"
-                        
-                        echo "Deployment verification completed!"
-                    """
-                }
-            }
-        }
+        // Docker stages temporarily disabled - cluster uses containerd, need Kaniko or Docker-in-Docker
+        // stage('Build Docker Image') {
+        //     steps {
+        //         script {
+        //             def imageTag = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
+        //             def imageTagLatest = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"
+        //             
+        //             echo "Building Docker image: ${imageTag}"
+        //             
+        //             sh """
+        //                 docker build -t ${imageTag} -t ${imageTagLatest} .
+        //             """
+        //             
+        //             env.DOCKER_IMAGE_FULL = imageTag
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Trivy Docker Image Scanning') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Running Trivy image scan..."
+        //                 trivy image ${env.DOCKER_IMAGE_FULL} > trivy-image-scan.txt || echo "Trivy image scan completed"
+        //                 cat trivy-image-scan.txt || true
+        //             """
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Push Docker Image') {
+        //     steps {
+        //         script {
+        //             withCredentials([usernamePassword(
+        //                 credentialsId: 'docker-hub-credentials',
+        //                 usernameVariable: 'DOCKER_USER',
+        //                 passwordVariable: 'DOCKER_PASS'
+        //             )]) {
+        //                 sh """
+        //                     echo "Logging into Docker Hub..."
+        //                     echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+        //                     
+        //                     echo "Pushing Docker image..."
+        //                     docker push ${env.DOCKER_IMAGE_FULL}
+        //                     docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
+        //                     
+        //                     echo "Logging out from Docker Hub..."
+        //                     docker logout
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Deploy to Kubernetes') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Deploying to Kubernetes namespace: ${K8S_NAMESPACE}"
+        //                 
+        //                 helm upgrade --install ${HELM_RELEASE_NAME} ${HELM_CHART_PATH} \\
+        //                     --namespace ${K8S_NAMESPACE} \\
+        //                     --set workload.image=${env.DOCKER_IMAGE_FULL} \\
+        //                     --set workload.imagePullPolicy=Always \\
+        //                     --wait --timeout=10m
+        //                 
+        //                 echo "Deployment completed successfully!"
+        //             """
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Run Database Migrations') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Running database migrations..."
+        //                 
+        //                 kubectl wait --for=condition=ready pod \\
+        //                     -l app.kubernetes.io/name=backend \\
+        //                     -n ${K8S_NAMESPACE} \\
+        //                     --timeout=5m || true
+        //                 
+        //                 BACKEND_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} \\
+        //                     -l app.kubernetes.io/name=backend \\
+        //                     -o jsonpath='{.items[0].metadata.name}')
+        //                 
+        //                 if [ -n "\$BACKEND_POD" ]; then
+        //                     echo "Running migrations in pod: \$BACKEND_POD"
+        //                     kubectl exec -n ${K8S_NAMESPACE} \$BACKEND_POD -- \\
+        //                         npx prisma migrate deploy || echo "Migrations may have already been applied"
+        //                 else
+        //                     echo "No backend pod found, skipping migrations"
+        //                 fi
+        //             """
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Verify Deployment') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Verifying deployment..."
+        //                 
+        //                 kubectl get pods -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
+        //                 kubectl get svc -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
+        //                 kubectl get ingress -n ${K8S_NAMESPACE} || echo "No ingress found"
+        //                 
+        //                 echo "Deployment verification completed!"
+        //             """
+        //         }
+        //     }
+        // }
     }
     
     post {
         success {
             script {
                 echo "✅ Pipeline succeeded!"
-                echo "Docker image: ${env.DOCKER_IMAGE_FULL}"
-                echo "Deployed to: ${K8S_NAMESPACE}/${HELM_RELEASE_NAME}"
+                echo "Application built successfully!"
+                // Docker stages are disabled - cluster uses containerd
+                // echo "Docker image: ${env.DOCKER_IMAGE_FULL}"
+                // echo "Deployed to: ${K8S_NAMESPACE}/${HELM_RELEASE_NAME}"
             }
         }
         failure {
@@ -349,10 +339,10 @@ pipeline {
         }
         always {
             script {
-                // Clean up Docker images to save space
-                sh '''
-                    docker image prune -f || true
-                '''
+                // Docker cleanup disabled - cluster uses containerd
+                // sh '''
+                //     docker image prune -f || true
+                // '''
             }
         }
     }
