@@ -46,10 +46,33 @@ pipeline {
             }
         }
         
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    sh '''
+                        echo "Setting up Node.js..."
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || {
+                            echo "NVM not found, installing..."
+                            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+                            export NVM_DIR="$HOME/.nvm"
+                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        }
+                        nvm install 18 || echo "Node 18 may already be installed"
+                        nvm use 18
+                        node --version
+                        npm --version
+                    '''
+                }
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 script {
                     sh '''
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18
                         echo "Installing Node.js dependencies..."
                         npm ci
                     '''
@@ -61,6 +84,8 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18
                         echo "Running linter..."
                         npm run lint || echo "Linting completed with warnings"
                         
@@ -75,6 +100,8 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18
                         echo "Building Next.js application..."
                         npm run build
                     '''
