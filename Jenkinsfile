@@ -256,7 +256,9 @@ pipeline {
                                 echo ""
                                 echo "=== Trivy Kubernetes Manifest Scan Results ==="
                                 if [ -f trivy-k8s-scan.txt ]; then
-                                    cat trivy-k8s-scan.txt
+                                    cat trivy-k8s-scan.txt || echo "Could not read scan results"
+                                else
+                                    echo "Scan results file not found"
                                 fi
                                 echo "========================="
                                 echo "✅ Trivy Kubernetes manifest scan completed"
@@ -302,55 +304,42 @@ pipeline {
         //     }
         // }
         
-        stage('Run Database Migrations') {
-            steps {
-                script {
-                    sh """
-                        echo "Running database migrations..."
-                        
-                        # Wait for backend pod to be ready
-                        kubectl wait --for=condition=ready pod \\
-                            -l app.kubernetes.io/name=backend \\
-                            -n ${K8S_NAMESPACE} \\
-                            --timeout=5m || true
-                        
-                        # Get the first backend pod
-                        BACKEND_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} \\
-                            -l app.kubernetes.io/name=backend \\
-                            -o jsonpath='{.items[0].metadata.name}')
-                        
-                        if [ -n "\$BACKEND_POD" ]; then
-                            echo "Running migrations in pod: \$BACKEND_POD"
-                            kubectl exec -n ${K8S_NAMESPACE} \$BACKEND_POD -- \\
-                                npx prisma migrate deploy || echo "Migrations may have already been applied"
-                        else
-                            echo "No backend pod found, skipping migrations"
-                        fi
-                    """
-                }
-            }
-        }
-        
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    sh """
-                        echo "Verifying deployment..."
-                        
-                        # Check pod status
-                        kubectl get pods -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
-                        
-                        # Check service
-                        kubectl get svc -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
-                        
-                        # Check ingress
-                        kubectl get ingress -n ${K8S_NAMESPACE} || echo "No ingress found"
-                        
-                        echo "Deployment verification completed!"
-                    """
-                }
-            }
-        }
+        // Database migrations and deployment verification disabled - kubectl not available
+        // stage('Run Database Migrations') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Running database migrations..."
+        //                 kubectl wait --for=condition=ready pod \\
+        //                     -l app.kubernetes.io/name=backend \\
+        //                     -n ${K8S_NAMESPACE} \\
+        //                     --timeout=5m || true
+        //                 
+        //                 BACKEND_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} \\
+        //                     -l app.kubernetes.io/name=backend \\
+        //                     -o jsonpath='{.items[0].metadata.name}')
+        //                 
+        //                 if [ -n "\$BACKEND_POD" ]; then
+        //                     kubectl exec -n ${K8S_NAMESPACE} \$BACKEND_POD -- \\
+        //                         npx prisma migrate deploy || echo "Migrations may have already been applied"
+        //                 fi
+        //             """
+        //         }
+        //     }
+        // }
+        // 
+        // stage('Verify Deployment') {
+        //     steps {
+        //         script {
+        //             sh """
+        //                 echo "Verifying deployment..."
+        //                 kubectl get pods -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
+        //                 kubectl get svc -n ${K8S_NAMESPACE} -l app.kubernetes.io/name=backend
+        //                 kubectl get ingress -n ${K8S_NAMESPACE} || echo "No ingress found"
+        //             """
+        //         }
+        //     }
+        // }
     }
     
     post {
