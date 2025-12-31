@@ -256,9 +256,9 @@ pipeline {
                                 echo ""
                                 echo "=== Trivy Kubernetes Manifest Scan Results ==="
                                 if [ -f trivy-k8s-scan.txt ]; then
-                                    cat trivy-k8s-scan.txt || echo "Could not read scan results"
+                                    /bin/cat trivy-k8s-scan.txt 2>/dev/null || echo "Could not read scan results"
                                 else
-                                    echo "Scan results file not found"
+                                    echo "Scan results file not found - Trivy scan may have failed"
                                 fi
                                 echo "========================="
                                 echo "✅ Trivy Kubernetes manifest scan completed"
@@ -272,7 +272,7 @@ pipeline {
                                     }
                                     if [ -f trivy-k8s-cluster-scan.txt ]; then
                                         echo "=== Trivy Kubernetes Cluster Scan Results ==="
-                                        cat trivy-k8s-cluster-scan.txt
+                                        /bin/cat trivy-k8s-cluster-scan.txt 2>/dev/null || echo "Could not read cluster scan results"
                                         echo "========================="
                                     fi
                                 else
