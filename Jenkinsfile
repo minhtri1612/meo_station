@@ -168,15 +168,15 @@ pipeline {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                         def imageToScan = env.DOCKER_IMAGE_FULL
                         sh """
-                            export PATH="\\$HOME/.local/bin:\\${PATH}"
+                            export PATH="\\\$HOME/.local/bin:\\\${PATH}"
                             
                             if command -v trivy &> /dev/null; then
                                 echo "Running Trivy Docker image scan..."
                                 echo "Scanning image: ${imageToScan}"
                                 
                                 # Scan Docker image - report vulnerabilities but don't fail build
-                                trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress "${imageToScan}" > trivy-image-scan.txt 2>&1 || {
-                                    echo "Trivy image scan completed (exit code: \\$?)"
+                                trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress '${imageToScan}' > trivy-image-scan.txt 2>&1 || {
+                                    echo "Trivy image scan completed (exit code: \\\$?)"
                                 }
                                 
                                 echo ""
