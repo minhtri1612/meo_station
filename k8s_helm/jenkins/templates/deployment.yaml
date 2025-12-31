@@ -47,7 +47,7 @@ spec:
         - name: JENKINS_OPTS
           value: "--httpPort=8080"
         - name: JAVA_OPTS
-          value: "-Xmx1024m -Xms512m"
+          value: "-Xmx2048m -Xms1024m"
         ports:
         - name: http-port
           containerPort: {{ .Values.service.targetPort }}

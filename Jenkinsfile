@@ -114,7 +114,9 @@ pipeline {
                             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18 || echo "NVM not found"
                         fi
                         echo "Installing Node.js dependencies..."
-                        npm ci
+                        # Reduce npm memory usage to avoid OOM
+                        export NODE_OPTIONS="--max-old-space-size=512"
+                        npm ci --prefer-offline --no-audit || npm install --prefer-offline --no-audit
                     '''
                 }
             }

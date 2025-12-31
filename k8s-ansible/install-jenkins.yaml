@@ -61,10 +61,10 @@
           --set ingress.className=nginx \
           --set ingress.annotations."nginx\.ingress\.kubernetes\.io/rewrite-target"=/ \
           --set ingress.annotations."nginx\.ingress\.kubernetes\.io/ssl-redirect"="false" \
-          --set resources.requests.memory=1Gi \
+          --set resources.requests.memory=2Gi \
           --set resources.requests.cpu=500m \
-          --set resources.limits.memory=2Gi \
-          --set resources.limits.cpu=1000m \
+          --set resources.limits.memory=4Gi \
+          --set resources.limits.cpu=2000m \
           --timeout=5m
       environment:
         KUBECONFIG: "{{ master_kubeconfig }}"
