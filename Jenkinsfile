@@ -224,18 +224,20 @@ pipeline {
             steps {
                 script {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        def helmChartPath = HELM_CHART_PATH
+                        def k8sNamespace = K8S_NAMESPACE
                         sh """
-                            export PATH="\\$HOME/.local/bin:\\${PATH}"
+                            export PATH="\\\$HOME/.local/bin:\\\${PATH}"
                             
                             if command -v trivy &> /dev/null; then
                                 echo "Running Trivy Kubernetes manifest scan..."
-                                echo "Scanning Helm charts in: ${HELM_CHART_PATH}"
+                                echo "Scanning Helm charts in: ${helmChartPath}"
                                 
                                 # Scan Kubernetes manifest files (Helm charts)
                                 # This scans for misconfigurations, security issues in K8s YAML files
                                 # Examples: missing security contexts, privilege escalation, insecure defaults
-                                trivy k8s config --exit-code 0 --severity HIGH,CRITICAL --format table ${HELM_CHART_PATH} > trivy-k8s-scan.txt 2>&1 || {
-                                    echo "Trivy K8s scan completed (exit code: \\$?)"
+                                trivy k8s config --exit-code 0 --severity HIGH,CRITICAL --format table '${helmChartPath}' > trivy-k8s-scan.txt 2>&1 || {
+                                    echo "Trivy K8s scan completed (exit code: \\\$?)"
                                 }
                                 
                                 echo ""
@@ -250,8 +252,8 @@ pipeline {
                                 if command -v kubectl &> /dev/null && kubectl cluster-info &> /dev/null; then
                                     echo ""
                                     echo "Scanning running Kubernetes cluster..."
-                                    trivy k8s cluster --exit-code 0 --severity HIGH,CRITICAL --namespace ${K8S_NAMESPACE} --format table > trivy-k8s-cluster-scan.txt 2>&1 || {
-                                        echo "Cluster scan completed (exit code: \\$?)"
+                                    trivy k8s cluster --exit-code 0 --severity HIGH,CRITICAL --namespace '${k8sNamespace}' --format table > trivy-k8s-cluster-scan.txt 2>&1 || {
+                                        echo "Cluster scan completed (exit code: \\\$?)"
                                     }
                                     if [ -f trivy-k8s-cluster-scan.txt ]; then
                                         echo "=== Trivy Kubernetes Cluster Scan Results ==="
