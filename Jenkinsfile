@@ -66,12 +66,10 @@ pipeline {
                         fi
                         
                         if [ -n "$TOOL_PATH" ] && [ -f "$TOOL_PATH/node" ]; then
-                            export PATH="$TOOL_PATH:${PATH}"
-                            echo "Added to PATH: $TOOL_PATH"
-                        fi
-                        
-                        # If still not found, try NVM (works as non-root)
-                        if ! command -v node &> /dev/null; then
+                            echo "$TOOL_PATH" > $WORKSPACE/.node_path
+                            echo "Using Node.js from tools: $TOOL_PATH"
+                        else
+                            # If still not found, try NVM (works as non-root)
                             echo "Node.js not found, installing via NVM..."
                             export NVM_DIR="$HOME/.nvm"
                             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || {
@@ -81,11 +79,21 @@ pipeline {
                             }
                             nvm install 18 || echo "NVM install failed"
                             nvm use 18 || echo "NVM use failed"
+                            # Store NVM path - find the actual installed version
+                            NVM_NODE_PATH=$(find /var/jenkins_home/.nvm/versions/node -name "node" -type f -path "*/v18.*/bin/node" | head -1 | xargs dirname)
+                            if [ -n "$NVM_NODE_PATH" ]; then
+                                echo "$NVM_NODE_PATH" > $WORKSPACE/.node_path
+                                echo "NVM Node.js installed at: $NVM_NODE_PATH"
+                            else
+                                # Fallback to default v18 path
+                                echo "/var/jenkins_home/.nvm/versions/node/v18.20.8/bin" > $WORKSPACE/.node_path
+                            fi
                         fi
                         
+                        NODE_PATH=$(cat $WORKSPACE/.node_path)
+                        export PATH="$NODE_PATH:${PATH}"
                         node --version || echo "Warning: Node.js not found"
                         npm --version || echo "Warning: npm not found"
-                        echo "PATH: $PATH"
                     '''
                 }
             }
@@ -95,9 +103,15 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Ensure Node.js is in PATH
-                        if [ -d "/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18" ]; then
-                            export PATH="/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18/bin:${PATH}"
+                        # Load Node.js path from file
+                        if [ -f "$WORKSPACE/.node_path" ]; then
+                            NODE_BIN_PATH=$(cat $WORKSPACE/.node_path)
+                            export PATH="$NODE_BIN_PATH:${PATH}"
+                            echo "Using Node.js from: $NODE_BIN_PATH"
+                        else
+                            # Fallback: try to source NVM
+                            export NVM_DIR="$HOME/.nvm"
+                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18 || echo "NVM not found"
                         fi
                         echo "Installing Node.js dependencies..."
                         npm ci
@@ -110,6 +124,14 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        # Load Node.js path
+                        if [ -f "$WORKSPACE/.node_path" ]; then
+                            NODE_BIN_PATH=$(cat $WORKSPACE/.node_path)
+                            export PATH="$NODE_BIN_PATH:${PATH}"
+                        else
+                            export NVM_DIR="$HOME/.nvm"
+                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18 || true
+                        fi
                         echo "Running linter..."
                         npm run lint || echo "Linting completed with warnings"
                         
@@ -160,6 +182,14 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        # Load Node.js path
+                        if [ -f "$WORKSPACE/.node_path" ]; then
+                            NODE_BIN_PATH=$(cat $WORKSPACE/.node_path)
+                            export PATH="$NODE_BIN_PATH:${PATH}"
+                        else
+                            export NVM_DIR="$HOME/.nvm"
+                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 18 || true
+                        fi
                         echo "Building Next.js application..."
                         npm run build
                     '''
