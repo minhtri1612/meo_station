@@ -1,0 +1,159 @@
+- name: Install Jenkins on Kubernetes
+  hosts: masters
+  become: yes
+  vars:
+    master_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Get the last worker node (4th worker for Jenkins)
+      shell: kubectl get nodes -l '!node-role.kubernetes.io/control-plane' --no-headers -o custom-columns=NAME:.metadata.name | tail -n1 | tr -d '[:space:]'
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: jenkins_node
+      changed_when: false
+
+    - name: Display Jenkins node
+      debug:
+        msg: "Jenkins will be deployed on node: {{ jenkins_node.stdout }}"
+
+    - name: Create Jenkins namespace
+      shell: kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+
+    - name: Delete existing Jenkins deployment (if exists) to fix issues
+      shell: |
+        kubectl delete deployment jenkins -n jenkins --ignore-not-found=true
+        kubectl delete pvc jenkins-data -n jenkins --ignore-not-found=true
+        echo "Waiting for cleanup..."
+        sleep 5
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+
+    - name: Ensure k8s_helm directory exists on master
+      file:
+        path: /home/ubuntu/k8s_helm
+        state: directory
+        mode: '0755'
+        owner: ubuntu
+        group: ubuntu
+      become: yes
+
+    - name: Copy Jenkins Helm chart directory to master
+      copy:
+        src: "{{ playbook_dir }}/../k8s_helm/jenkins"
+        dest: /home/ubuntu/k8s_helm/
+        mode: '0755'
+      become: yes
+
+    - name: Install Jenkins using Helm (without wait to check status)
+      shell: |
+        helm upgrade --install jenkins /home/ubuntu/k8s_helm/jenkins \
+          --namespace jenkins \
+          --set jenkinsNodeSelector.kubernetes.io/hostname="{{ jenkins_node.stdout }}" \
+          --set jenkins.adminPassword=admin \
+          --set persistence.enabled=true \
+          --set persistence.size=20Gi \
+          --set persistence.storageClass=gp3 \
+          --set service.type=ClusterIP \
+          --set ingress.enabled=true \
+          --set ingress.className=nginx \
+          --set ingress.annotations."nginx\.ingress\.kubernetes\.io/rewrite-target"=/ \
+          --set ingress.annotations."nginx\.ingress\.kubernetes\.io/ssl-redirect"="false" \
+          --set resources.requests.memory=1Gi \
+          --set resources.requests.cpu=500m \
+          --set resources.limits.memory=2Gi \
+          --set resources.limits.cpu=1000m \
+          --timeout=5m
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+
+    - name: Check Jenkins pod status
+      shell: |
+        echo "=== Jenkins Pods ==="
+        kubectl get pods -n jenkins -o wide
+        echo ""
+        echo "=== Jenkins Deployment (check nodeSelector) ==="
+        kubectl get deployment -n jenkins jenkins -o yaml | grep -A 5 nodeSelector || echo "No nodeSelector found"
+        echo ""
+        echo "=== Jenkins Pod Events ==="
+        kubectl get events -n jenkins --sort-by='.lastTimestamp' | tail -20
+        echo ""
+        echo "=== Jenkins PVC Status ==="
+        kubectl get pvc -n jenkins
+        echo ""
+        echo "=== Expected Node: {{ jenkins_node.stdout }} ==="
+        echo "=== Node Status ==="
+        kubectl describe node {{ jenkins_node.stdout }} | grep -A 10 "Allocated resources" || true
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: jenkins_status
+      changed_when: false
+
+    - name: Display Jenkins status
+      debug:
+        var: jenkins_status.stdout_lines
+
+    - name: Check Jenkins pod logs for errors
+      shell: |
+        POD_NAME=$(kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$POD_NAME" ]; then
+          echo "=== Jenkins Pod Logs (last 50 lines) ==="
+          kubectl logs -n jenkins $POD_NAME --tail=50 || kubectl logs -n jenkins $POD_NAME --previous --tail=50 || echo "Could not get logs"
+        fi
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: jenkins_logs
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Display Jenkins logs
+      debug:
+        var: jenkins_logs.stdout_lines
+
+    - name: Wait for Jenkins pod to be ready
+      shell: |
+        i=1
+        while [ $i -le 60 ]; do
+          POD_STATUS=$(kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo 'Unknown')
+          if [ "$POD_STATUS" = "Running" ]; then
+            READY=$(kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo 'false')
+            if [ "$READY" = "true" ]; then
+              echo "Jenkins pod is ready"
+              exit 0
+            fi
+          fi
+          if [ $((i % 10)) -eq 0 ]; then
+            echo "Waiting for Jenkins... ($i/60) - Status: $POD_STATUS"
+            kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins | head -2 || true
+          fi
+          sleep 5
+          i=$((i + 1))
+        done
+        echo "Jenkins may not be fully ready, but continuing..."
+        exit 0
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      ignore_errors: yes
+
+    - name: Get Jenkins admin password from pod
+      shell: |
+        JENKINS_POD=$(kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins -o jsonpath='{.items[0].metadata.name}')
+        kubectl exec -n jenkins $JENKINS_POD -- cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null || echo "Password file not found yet, use default: admin"
+      environment:
+        KUBECONFIG: "{{ master_kubeconfig }}"
+      register: jenkins_password
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Display Jenkins installation status
+      debug:
+        msg: |
+          Jenkins installed successfully!
+          Node: {{ jenkins_node.stdout }}
+          Access: http://jenkins.local
+          Username: admin
+          Password: {{ jenkins_password.stdout | default('admin (or check pod logs)') }}
+

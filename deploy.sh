@@ -148,13 +148,13 @@ HOSTS_FILE="/etc/hosts"
 # Function to update /etc/hosts
 update_hosts_file() {
     # Remove old entries for meo-stationery.local, grafana.local, prometheus.local
-    if grep -q "meo-stationery.local\|grafana.local\|prometheus.local" "$HOSTS_FILE" 2>/dev/null; then
+    if grep -q "meo-stationery.local\|jenkins.local\|grafana.local\|prometheus.local" "$HOSTS_FILE" 2>/dev/null; then
         echo "Found existing entries in /etc/hosts"
-        OLD_ENTRIES=$(grep -E "meo-stationery.local|grafana.local|prometheus.local" "$HOSTS_FILE" | head -n1)
+        OLD_ENTRIES=$(grep -E "meo-stationery.local|jenkins.local|grafana.local|prometheus.local" "$HOSTS_FILE" | head -n1)
         echo "  Current entry: $OLD_ENTRIES"
         
         # Remove lines containing these domains
-        if sudo sed -i.bak '/meo-stationery\.local\|grafana\.local\|prometheus\.local/d' "$HOSTS_FILE" 2>/dev/null; then
+        if sudo sed -i.bak '/meo-stationery\.local\|jenkins\.local\|grafana\.local\|prometheus\.local/d' "$HOSTS_FILE" 2>/dev/null; then
             echo "  ✓ Removed old entries"
         else
             echo -e "  ${YELLOW}⚠ Could not remove old entries (may need password)${NC}"
@@ -163,7 +163,7 @@ update_hosts_file() {
     fi
     
     # Add new entries
-    NEW_ENTRIES="$MASTER_IP meo-stationery.local grafana.local prometheus.local argocd.local"
+    NEW_ENTRIES="$MASTER_IP meo-stationery.local jenkins.local grafana.local prometheus.local argocd.local"
     if echo "$NEW_ENTRIES" | sudo tee -a "$HOSTS_FILE" >/dev/null 2>&1; then
         echo -e "${GREEN}✓ Updated /etc/hosts with: $NEW_ENTRIES${NC}"
         return 0
@@ -178,13 +178,13 @@ if update_hosts_file; then
 else
     echo -e "\n${YELLOW}⚠ Could not automatically update /etc/hosts${NC}"
     echo -e "${YELLOW}Please run these commands manually:${NC}"
-    echo -e "  sudo sed -i.bak '/meo-stationery\.local\|grafana\.local\|prometheus\.local\|argocd\.local/d' /etc/hosts"
-    echo -e "  echo '$MASTER_IP meo-stationery.local grafana.local prometheus.local argocd.local' | sudo tee -a /etc/hosts"
+    echo -e "  sudo sed -i.bak '/meo-stationery\.local\|jenkins\.local\|grafana\.local\|prometheus\.local\|argocd\.local/d' /etc/hosts"
+    echo -e "  echo '$MASTER_IP meo-stationery.local jenkins.local grafana.local prometheus.local argocd.local' | sudo tee -a /etc/hosts"
 fi
 
 # Wait for instances to be ready
-print_step "Waiting for instances to be ready (30 seconds)..."
-sleep 30
+print_step "Waiting for instances to be ready (15 seconds)..."
+sleep 15
 
 # Step 3: Run Ansible playbooks
 print_step "Running Ansible playbooks..."
@@ -222,7 +222,7 @@ ansible-playbook -i inventory.ini install-argocd.yaml
 print_step "Deploying backend with Helm..."
 
 # Wait a bit for cluster to stabilize
-sleep 10
+sleep 5
 
 # Copy k8s_helm directory to master
 print_step "  → Copying Helm charts to master node..."
@@ -283,8 +283,8 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
         fi
     done
     
-    # Now wait for pod to be ready
-    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres,app.kubernetes.io/instance=postgres -n meo-stationery --timeout=300s || {
+    # Now wait for pod to be ready (reduced timeout)
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres,app.kubernetes.io/instance=postgres -n meo-stationery --timeout=180s || {
         echo 'Waiting for postgres pod...'
         sleep 10
         kubectl get pods -n meo-stationery -l app.kubernetes.io/name=postgres || kubectl get pods -n meo-stationery | grep postgres
@@ -295,7 +295,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
             echo 'Please free up disk space on nodes and retry.'
             exit 1
         fi
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n meo-stationery --timeout=300s || {
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n meo-stationery --timeout=180s || {
             echo 'ERROR: Database pod failed to become ready'
             exit 1
         }
@@ -319,7 +319,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
     POSTGRES_READY=\$(kubectl get pods -n meo-stationery -l app.kubernetes.io/name=postgres -o jsonpath='{.items[0].status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'False')
     if [ \"\$POSTGRES_READY\" != \"True\" ]; then
         echo 'Waiting for postgres pod to be ready...'
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n meo-stationery --timeout=300s || {
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n meo-stationery --timeout=180s || {
             echo 'ERROR: Database pod failed to become ready'
             exit 1
         }
@@ -351,7 +351,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
         if [ \"\$PRODUCT_COUNT\" -gt 0 ]; then
             echo \"Database already has \$PRODUCT_COUNT products. Migration should be quick.\"
         fi
-        helm upgrade backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=15m --force || {
+        helm upgrade backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=8m --force || {
             echo 'Helm upgrade failed, checking migration job logs...'
             echo 'Getting migration pods...'
             kubectl get pods -n meo-stationery | grep migration
@@ -364,7 +364,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
         }
     else
         echo 'Installing backend...'
-        helm install backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=20m --force || {
+        helm install backend ~/k8s_helm/backend -n meo-stationery --wait --timeout=10m --force || {
             echo 'Helm install failed, checking migration job logs...'
             echo 'Getting migration pods...'
             kubectl get pods -n meo-stationery | grep migration
@@ -391,7 +391,34 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$MASTER_IP "
     kubectl get ingress -n meo-stationery || echo 'No ingress found'
 "
 
-# Step 5: Verify deployment
+# Step 5: Install Jenkins
+print_step "Installing Jenkins CI/CD..."
+cd "$ANSIBLE_DIR"
+
+print_step "  → Installing Jenkins on Kubernetes..."
+ansible-playbook -i inventory.ini install-jenkins.yaml || {
+    echo -e "${YELLOW}⚠ Jenkins installation had some issues, but continuing...${NC}"
+}
+
+echo -e "${GREEN}✓ Jenkins installation completed${NC}"
+
+# Step 6: Install Prometheus and Grafana
+print_step "Installing Prometheus and Grafana monitoring stack..."
+cd "$ANSIBLE_DIR"
+
+print_step "  → Installing Prometheus and Grafana..."
+ansible-playbook -i inventory.ini install-monitoring.yaml || {
+    echo -e "${YELLOW}⚠ Monitoring installation had some issues, but continuing...${NC}"
+}
+
+print_step "  → Setting up monitoring ingress..."
+ansible-playbook -i inventory.ini setup-monitoring-ingress.yaml || {
+    echo -e "${YELLOW}⚠ Monitoring ingress setup had some issues, but continuing...${NC}"
+}
+
+echo -e "${GREEN}✓ Monitoring stack installation completed${NC}"
+
+# Step 7: Verify deployment
 print_step "Verifying deployment..."
 
 # Wait a bit for everything to be ready
@@ -411,11 +438,12 @@ echo -e "\n${GREEN}=== Deployment Complete! ===${NC}"
 echo -e "${GREEN}Master IP: $MASTER_IP${NC}"
 echo -e "\n${GREEN}=== Access URLs ===${NC}"
 echo -e "${GREEN}Main App:${NC}     http://meo-stationery.local"
+echo -e "${GREEN}Jenkins:${NC}      http://jenkins.local (User: admin / Password: admin)"
 echo -e "${GREEN}ArgoCD:${NC}       http://argocd.local (User: admin)"
+echo -e "${GREEN}Grafana:${NC}      http://grafana.local (User: admin / Password: admin)"
+echo -e "${GREEN}Prometheus:${NC}   http://prometheus.local"
 echo -e "${YELLOW}To get ArgoCD password:${NC}"
 echo -e "  ssh -i $SSH_KEY ubuntu@$MASTER_IP 'kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d && echo'"
-echo -e "\n${YELLOW}To install Prometheus and Grafana, run:${NC}"
-echo -e "  ${YELLOW}./install-monitoring.sh${NC}"
 echo -e "\n${GREEN}CloudWatch Dashboard:${NC}"
 echo -e "  https://console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#dashboards:name=$DASHBOARD_NAME"
 echo -e "\n${GREEN}SSH: ssh -i $SSH_KEY ubuntu@$MASTER_IP${NC}"

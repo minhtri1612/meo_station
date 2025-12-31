@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jenkins.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jenkins.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "jenkins.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jenkins.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "jenkins.serviceAccountName" . }}
+      {{- if index .Values.jenkinsNodeSelector "kubernetes.io/hostname" }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ index .Values.jenkinsNodeSelector "kubernetes.io/hostname" | quote }}
+      {{- else if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: jenkins
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+        env:
+        - name: JENKINS_OPTS
+          value: "--httpPort=8080"
+        - name: JAVA_OPTS
+          value: "-Xmx1024m -Xms512m"
+        ports:
+        - name: http-port
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        - name: jnlp-port
+          containerPort: 50000
+          protocol: TCP
+        {{- if .Values.persistence.enabled }}
+        volumeMounts:
+        - name: jenkins-data
+          mountPath: /var/jenkins_home
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: http-port
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: http-port
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      {{- if .Values.persistence.enabled }}
+      volumes:
+      - name: jenkins-data
+        persistentVolumeClaim:
+          claimName: {{ include "jenkins.fullname" . }}-data
+      {{- end }}
+

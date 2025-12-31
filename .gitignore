@@ -20,6 +20,10 @@ yarn-error.log*
 bastion-key.js
 # Ignore the private key file itself
 bastion-key
+*.pem
+*.key
+terraform-infra/k8s-key.pem
+terraform-infra/*.pem
 
 # Ignore SQL data dumps
 *.sql

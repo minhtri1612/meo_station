@@ -1,10 +1,11 @@
 [masters]
-52.62.249.75 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+3.107.185.79 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 
 [workers]
-54.253.18.185 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
-3.107.154.215 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
-3.24.215.11 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+3.26.34.114 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+16.176.167.176 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+3.25.205.43 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+13.211.178.217 ansible_user=ubuntu ansible_ssh_private_key_file=/home/minhtri/Downloads/meo_stationery-master/terraform-infra/k8s-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 
 [all:children]
 masters

@@ -1,0 +1,60 @@
+replicaCount: 1
+
+image:
+  repository: jenkins/jenkins
+  pullPolicy: IfNotPresent
+  tag: "lts"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: jenkins.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+jenkins:
+  adminUser: admin
+  adminPassword: admin  # Change this in production!
+  
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "2Gi"
+    cpu: "1000m"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Node selector to deploy Jenkins on a specific worker node
+# This will be set via Ansible to target one of the worker nodes
+jenkinsNodeSelector:
+  kubernetes.io/hostname: ""  # Will be set during deployment
+

@@ -162,6 +162,22 @@ resource "aws_security_group" "k8s_sg" {
   }
 
   ingress {
+    description = "Jenkins Web UI"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Jenkins Agent Port"
+    from_port   = 50000
+    to_port     = 50000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -207,6 +223,9 @@ resource "aws_iam_instance_profile" "k8s_profile" {
   name = "k8s_profile_new"
   role = aws_iam_role.k8s_role.name
 }
+
+# Note: Jenkins will run in Kubernetes, not as a separate EC2 instance
+# Jenkins pods will use Kubernetes ServiceAccount with IAM roles for AWS access
 
 # -----------------------
 # EC2 Instances
