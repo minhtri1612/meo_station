@@ -14,6 +14,10 @@ pipeline {
         
         // Application configuration
         NODE_VERSION = '18'
+        
+        // SonarQube configuration
+        SCANNER_HOME = tool 'sonar-scanner'  // Configure in Jenkins Global Tool Configuration
+        SONAR_HOST_URL = 'http://sonarqube.local'
     }
     
     options {
@@ -105,6 +109,36 @@ pipeline {
                         echo "Building Next.js application..."
                         npm run build
                     '''
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        withSonarQubeEnv('sonarqube') {
+                            sh """
+                                ${env.SCANNER_HOME}/bin/sonar-scanner \\
+                                -Dsonar.projectKey=MeoStationeryProject \\
+                                -Dsonar.sources=. \\
+                                -Dsonar.host.url=${env.SONAR_HOST_URL} \\
+                                -Dsonar.login=\${SONAR_AUTH_TOKEN}
+                            """
+                        }
+                    }
+                    echo "⚠️ SonarQube analysis completed (may have warnings)"
+                }
+            }
+        }
+        
+        stage('Quality Gate Check') {
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                    }
+                    echo "⚠️ Quality gate check completed (may have warnings)"
                 }
             }
         }
