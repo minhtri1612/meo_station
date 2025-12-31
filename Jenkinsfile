@@ -166,15 +166,16 @@ pipeline {
             steps {
                 script {
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        def imageToScan = env.DOCKER_IMAGE_FULL
                         sh """
                             export PATH="\\$HOME/.local/bin:\\${PATH}"
                             
                             if command -v trivy &> /dev/null; then
                                 echo "Running Trivy Docker image scan..."
-                                echo "Scanning image: ${env.DOCKER_IMAGE_FULL}"
+                                echo "Scanning image: ${imageToScan}"
                                 
                                 # Scan Docker image - report vulnerabilities but don't fail build
-                                trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress "${env.DOCKER_IMAGE_FULL}" > trivy-image-scan.txt 2>&1 || {
+                                trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress "${imageToScan}" > trivy-image-scan.txt 2>&1 || {
                                     echo "Trivy image scan completed (exit code: \\$?)"
                                 }
                                 
@@ -215,6 +216,57 @@ pipeline {
                             docker logout
                         """
                     }
+                }
+            }
+        }
+        
+        stage('Trivy Kubernetes Scanning') {
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                        sh """
+                            export PATH="\\$HOME/.local/bin:\\${PATH}"
+                            
+                            if command -v trivy &> /dev/null; then
+                                echo "Running Trivy Kubernetes manifest scan..."
+                                echo "Scanning Helm charts in: ${HELM_CHART_PATH}"
+                                
+                                # Scan Kubernetes manifest files (Helm charts)
+                                # This scans for misconfigurations, security issues in K8s YAML files
+                                # Examples: missing security contexts, privilege escalation, insecure defaults
+                                trivy k8s config --exit-code 0 --severity HIGH,CRITICAL --format table ${HELM_CHART_PATH} > trivy-k8s-scan.txt 2>&1 || {
+                                    echo "Trivy K8s scan completed (exit code: \\$?)"
+                                }
+                                
+                                echo ""
+                                echo "=== Trivy Kubernetes Manifest Scan Results ==="
+                                if [ -f trivy-k8s-scan.txt ]; then
+                                    cat trivy-k8s-scan.txt
+                                fi
+                                echo "========================="
+                                echo "✅ Trivy Kubernetes manifest scan completed"
+                                
+                                # Optionally scan running cluster if kubectl is available
+                                if command -v kubectl &> /dev/null && kubectl cluster-info &> /dev/null; then
+                                    echo ""
+                                    echo "Scanning running Kubernetes cluster..."
+                                    trivy k8s cluster --exit-code 0 --severity HIGH,CRITICAL --namespace ${K8S_NAMESPACE} --format table > trivy-k8s-cluster-scan.txt 2>&1 || {
+                                        echo "Cluster scan completed (exit code: \\$?)"
+                                    }
+                                    if [ -f trivy-k8s-cluster-scan.txt ]; then
+                                        echo "=== Trivy Kubernetes Cluster Scan Results ==="
+                                        cat trivy-k8s-cluster-scan.txt
+                                        echo "========================="
+                                    fi
+                                else
+                                    echo "kubectl not available, skipping cluster scan"
+                                fi
+                            else
+                                echo "⚠️ Trivy not found, skipping Kubernetes scan"
+                            fi
+                        """
+                    }
+                    echo "⚠️ Trivy Kubernetes scanning completed (may have warnings)"
                 }
             }
         }
