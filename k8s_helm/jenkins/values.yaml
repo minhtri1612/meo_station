@@ -35,6 +35,7 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+  allowNoHost: true  # Allow requests without hostname (for GitHub webhooks)
   tls: []
 
 jenkins:

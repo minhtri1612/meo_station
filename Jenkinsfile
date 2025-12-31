@@ -14,6 +14,10 @@ pipeline {
         
         // Application configuration
         NODE_VERSION = '18'
+        
+        // SonarQube configuration
+        SCANNER_HOME = tool 'sonar-scanner'  // Configure in Jenkins Global Tool Configuration
+        SONAR_HOST_URL = 'http://sonarqube.local'
     }
     
     options {
@@ -46,10 +50,55 @@ pipeline {
             }
         }
         
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    sh '''
+                        echo "Setting up Node.js..."
+                        # Try to find Node.js in Jenkins tools directory
+                        TOOL_PATH=""
+                        if [ -d "/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18" ]; then
+                            TOOL_PATH="/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18/bin"
+                            echo "Found Node.js tool at: $TOOL_PATH"
+                        elif [ -d "/var/jenkins_home/tools/nodejs" ]; then
+                            TOOL_PATH="/var/jenkins_home/tools/nodejs/bin"
+                            echo "Found Node.js at: $TOOL_PATH"
+                        fi
+                        
+                        if [ -n "$TOOL_PATH" ] && [ -f "$TOOL_PATH/node" ]; then
+                            export PATH="$TOOL_PATH:${PATH}"
+                            echo "Added to PATH: $TOOL_PATH"
+                        fi
+                        
+                        # If still not found, try NVM (works as non-root)
+                        if ! command -v node &> /dev/null; then
+                            echo "Node.js not found, installing via NVM..."
+                            export NVM_DIR="$HOME/.nvm"
+                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || {
+                                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+                                export NVM_DIR="$HOME/.nvm"
+                                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                            }
+                            nvm install 18 || echo "NVM install failed"
+                            nvm use 18 || echo "NVM use failed"
+                        fi
+                        
+                        node --version || echo "Warning: Node.js not found"
+                        npm --version || echo "Warning: npm not found"
+                        echo "PATH: $PATH"
+                    '''
+                }
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 script {
                     sh '''
+                        # Ensure Node.js is in PATH
+                        if [ -d "/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18" ]; then
+                            export PATH="/var/jenkins_home/tools/hudson.plugins.nodejs.tools.NodeJSInstallation/node18/bin:${PATH}"
+                        fi
                         echo "Installing Node.js dependencies..."
                         npm ci
                     '''
@@ -67,6 +116,42 @@ pipeline {
                         # Add tests here if you have them
                         # npm test || echo "Tests completed"
                     '''
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    withSonarQubeEnv('sonarqube') {
+                        sh """
+                            ${env.SCANNER_HOME}/bin/sonar-scanner \
+                            -Dsonar.projectKey=MeoStationeryProject \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                            -Dsonar.login=\${SONAR_AUTH_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate Check') {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                }
+            }
+        }
+        
+        stage('Trivy FS Scanning') {
+            steps {
+                script {
+                    sh """
+                        echo "Running Trivy filesystem scan..."
+                        trivy fs . > trivy-fs-scan.txt || echo "Trivy scan completed"
+                        cat trivy-fs-scan.txt || true
+                    """
                 }
             }
         }
@@ -96,6 +181,18 @@ pipeline {
                     
                     // Store image tags for later stages
                     env.DOCKER_IMAGE_FULL = imageTag
+                }
+            }
+        }
+        
+        stage('Trivy Docker Image Scanning') {
+            steps {
+                script {
+                    sh """
+                        echo "Running Trivy image scan..."
+                        trivy image ${env.DOCKER_IMAGE_FULL} > trivy-image-scan.txt || echo "Trivy image scan completed"
+                        cat trivy-image-scan.txt || true
+                    """
                 }
             }
         }
