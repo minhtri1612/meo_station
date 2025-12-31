@@ -340,9 +340,7 @@ pipeline {
         always {
             script {
                 // Docker cleanup disabled - cluster uses containerd
-                // sh '''
-                //     docker image prune -f || true
-                // '''
+                echo "Pipeline completed"
             }
         }
     }
